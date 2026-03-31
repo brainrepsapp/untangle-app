@@ -132,6 +132,13 @@
       transition: background 0.15s;
     }
     .settings-btn:active { background: var(--card); }
+    .back-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px; padding: 6px 8px; line-height: 1;
+      color: var(--text-soft); border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .back-btn:active { background: var(--card); }
 
     @keyframes popIn {
       from { opacity: 0; transform: scale(0.55); }
@@ -527,11 +534,9 @@
 <div id="s-wants" class="screen">
 
   <div class="topbar">
-    <div class="logo-wrap">
-      <span class="logo-icon">🌿</span>
-      <span class="logo-text">Untangle</span>
-    </div>
+    <button class="back-btn" onclick="backPhase2()" aria-label="Back">‹</button>
     <div class="phase-badge" data-i18n="phase2of3">Phase 2 of 3</div>
+    <div style="width:38px"></div>
   </div>
 
   <div class="progress-track" id="prog-track"></div>
@@ -593,11 +598,9 @@
 <div id="s-map" class="screen">
 
   <div class="topbar">
-    <div class="logo-wrap">
-      <span class="logo-icon">🌿</span>
-      <span class="logo-text">Untangle</span>
-    </div>
+    <button class="back-btn" onclick="backPhase3()" aria-label="Back">‹</button>
     <div class="phase-badge" data-i18n="phase3of3">Phase 3 of 3</div>
+    <div style="width:38px"></div>
   </div>
 
   <h2 data-i18n="map_title">Map the Relationships</h2>
@@ -1197,6 +1200,29 @@ function updateP1Btn() {
   const n = S.people.length;
   document.getElementById('btn-p1-next').disabled = n < 2;
   document.getElementById('min-hint').style.display = (n === 1) ? 'block' : 'none';
+}
+
+function backPhase2() {
+  // Save current person's data before going back
+  const p = S.people[S.phase2idx];
+  if (p) {
+    S.wants[p.name]         = document.getElementById('wants-textarea').value.trim();
+    S.misunderstood[p.name] = document.getElementById('misunderstood-textarea').value.trim();
+  }
+  if (S.phase2idx > 0) {
+    S.phase2idx--;
+    showScreen('s-wants');
+    renderPhase2();
+  } else {
+    showScreen('s-welcome');
+  }
+}
+
+function backPhase3() {
+  // Return to last person in Phase 2
+  S.phase2idx = S.people.length - 1;
+  showScreen('s-wants');
+  renderPhase2();
 }
 
 function goPhase2() {
