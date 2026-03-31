@@ -355,6 +355,57 @@
     .final-watermark { position: absolute; bottom: 10px; left: 14px; font-size: 11px; color: var(--sage); font-style: italic; opacity: 0.75; pointer-events: none; }
     .final-legend { position: absolute; bottom: 10px; right: 12px; background: rgba(255,255,255,0.92); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); }
 
+    /* ============================================================
+       PROJECTS HOME SCREEN
+    ============================================================ */
+    .projects-hero { text-align: center; padding: 8px 0 20px; flex-shrink: 0; }
+    .projects-sub  { font-size: 15px; color: var(--text-soft); font-style: italic; }
+    .btn-new-map {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 17px; border-radius: var(--radius);
+      background: var(--teal); color: white;
+      font-size: 17px; font-weight: 700; border: none; cursor: pointer;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    .btn-new-map:active { background: var(--teal-dark); }
+    .projects-list-heading {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-soft); margin: 20px 0 10px;
+      flex-shrink: 0;
+    }
+    .projects-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--text-soft); text-align: center; padding: 48px 0;
+    }
+    .projects-empty-icon { font-size: 36px; opacity: 0.35; }
+    .projects-empty-text { font-size: 15px; line-height: 1.5; }
+    .project-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 15px 14px;
+      margin-bottom: 10px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: flex-start; gap: 10px;
+      transition: box-shadow 0.15s;
+    }
+    .project-card:active { box-shadow: 0 3px 14px rgba(0,0,0,0.09); }
+    .project-card-main   { flex: 1; min-width: 0; }
+    .project-card-situation { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-card-meta  { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .project-phase-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 50px; }
+    .project-phase-start  { background: var(--sage-pale);  color: #5a7a58; }
+    .project-phase-wants  { background: var(--teal-light); color: var(--teal-dark); }
+    .project-phase-map    { background: var(--teal-light); color: var(--teal-dark); }
+    .project-phase-final  { background: #e6f4ea; color: #2e7038; }
+    .project-card-date  { font-size: 12px; color: var(--text-soft); }
+    .project-card-people { display: flex; flex-wrap: wrap; gap: 5px; }
+    .project-person-chip { font-size: 11px; background: var(--card); border: 1px solid var(--border); color: var(--text-soft); padding: 2px 9px; border-radius: 50px; }
+    .project-delete-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-soft); font-size: 16px; padding: 4px 6px; line-height: 1;
+      opacity: 0.45; flex-shrink: 0; border-radius: 6px; transition: opacity 0.15s;
+    }
+    .project-delete-btn:active { opacity: 1; color: var(--red); }
+
     /* Perspectives */
     .perspectives-section { flex-shrink: 0; margin-bottom: 8px; }
     .perspectives-heading {
@@ -480,9 +531,9 @@
 <body>
 
 <!-- ======================================================
-     SCREEN 1 — WELCOME
+     SCREEN PROJECTS (Home)
 ====================================================== -->
-<div id="s-welcome" class="screen active">
+<div id="s-projects" class="screen active">
 
   <div class="topbar">
     <div style="width:38px"></div>
@@ -493,8 +544,34 @@
     <button class="settings-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
   </div>
 
+  <div class="projects-hero">
+  </div>
+
+  <button class="btn-new-map" onclick="newMap()">
+    <span>＋</span>
+    <span data-i18n="proj_new_map">New Map</span>
+  </button>
+
+  <div id="projects-list-heading" class="projects-list-heading" data-i18n="proj_your_maps">Your Maps</div>
+  <div id="projects-list"></div>
+</div>
+
+
+<!-- ======================================================
+     SCREEN 1 — WELCOME
+====================================================== -->
+<div id="s-welcome" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('s-projects')" aria-label="Back">‹</button>
+    <div class="logo-wrap">
+      <span class="logo-icon">🌿</span>
+      <span class="logo-text">Untangle</span>
+    </div>
+    <button class="settings-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+  </div>
+
   <div class="welcome-hero">
-    <div class="hero-logo-sub" data-i18n="tagline">Map who matters — and why it's complicated</div>
   </div>
 
   <div class="label" data-i18n="the_situation">The Situation</div>
@@ -807,7 +884,6 @@
 
 const STRINGS = {
   en: {
-    tagline:              'Map who matters — and why it\'s complicated',
     the_situation:        'The Situation',
     situation_placeholder:'e.g. The Hunger Games, School Budget Dispute…',
     who_is_affected:      'Who is affected?',
@@ -879,10 +955,17 @@ const STRINGS = {
     perspectives_wants:   'What they want',
     perspectives_mis:     'Feels misunderstood',
     perspectives_empty:   '(not written)',
+
+    proj_new_map:         'New Map',
+    proj_your_maps:       'Your Maps',
+    proj_empty_text:      'Your maps will appear here.\nTap New Map to get started.',
+    proj_phase_start:     'Setup',
+    proj_phase_wants:     'Perspectives',
+    proj_phase_map:       'Mapping',
+    proj_phase_final:     'Complete',
   },
 
   es: {
-    tagline:              'Mapea quién importa — y por qué es complicado',
     the_situation:        'La situación',
     situation_placeholder:'p. ej. Los Juegos del Hambre, Debate sobre el presupuesto escolar…',
     who_is_affected:      '¿Quién se ve afectado/a?',
@@ -954,6 +1037,14 @@ const STRINGS = {
     perspectives_wants:   'Qué quieren',
     perspectives_mis:     'Se sienten incomprendidos/as',
     perspectives_empty:   '(no escrito)',
+
+    proj_new_map:         'Nuevo mapa',
+    proj_your_maps:       'Tus mapas',
+    proj_empty_text:      'Tus mapas aparecerán aquí.\nToca Nuevo mapa para comenzar.',
+    proj_phase_start:     'Inicio',
+    proj_phase_wants:     'Perspectivas',
+    proj_phase_map:       'Mapeo',
+    proj_phase_final:     'Completo',
   }
 };
 
@@ -1036,6 +1127,9 @@ const S = {
   pendingNode:  null,
   lang:         'en',
   supports:     false,
+  projectId:    null,
+  createdAt:    null,
+  phase:        'start',  // 'start' | 'wants' | 'map' | 'final'
 };
 
 const COLOR_HEX = {
@@ -1230,6 +1324,8 @@ function goPhase2() {
   S.wants       = {};
   S.misunderstood = {};
   S.phase2idx   = 0;
+  S.phase       = 'wants';
+  saveProject();
   showScreen('s-wants');
   renderPhase2();
 }
@@ -1290,6 +1386,7 @@ function nextPerson() {
 
   if (S.phase2idx < S.people.length - 1) {
     S.phase2idx++;
+    saveProject();
     renderPhase2();
   } else {
     goPhase3();
@@ -1302,6 +1399,8 @@ function goPhase3() {
   S.rels         = [];
   S.selectedNode = null;
   S.pendingNode  = null;
+  S.phase        = 'map';
+  saveProject();
   showScreen('s-map');
   setTimeout(renderMapNodes, 100);
 }
@@ -1539,6 +1638,8 @@ document.getElementById('map-container').addEventListener('touchmove',
 // ==================== FINAL SCREEN ====================
 
 function goFinal() {
+  S.phase = 'final';
+  saveProject();
   showScreen('s-final');
   document.getElementById('final-title-text').textContent = S.situation;
   setTimeout(renderFinalMap, 100);
@@ -1798,19 +1899,84 @@ function canvasRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ==================== UTILITIES ====================
+// ==================== SAVED PROJECTS ====================
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0, 0);
-  applyTranslations();
+const STORAGE_KEY = 'untangle_v1';
+
+function loadProjects() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch (_) { return []; }
 }
 
-function startOver() {
+function saveProject() {
+  if (!S.projectId) {
+    S.projectId = Date.now();
+    S.createdAt = S.projectId;
+  }
+  const projects = loadProjects();
+  const idx = projects.findIndex(p => p.id === S.projectId);
+  const entry = {
+    id:            S.projectId,
+    createdAt:     S.createdAt,
+    updatedAt:     Date.now(),
+    phase:         S.phase,
+    situation:     S.situation,
+    people:        S.people.slice(),
+    wants:         Object.assign({}, S.wants),
+    misunderstood: Object.assign({}, S.misunderstood),
+    rels:          S.rels.slice(),
+    phase2idx:     S.phase2idx,
+  };
+  if (idx >= 0) projects[idx] = entry;
+  else projects.unshift(entry);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (_) {}
+}
+
+function deleteProject(id, e) {
+  e.stopPropagation();
+  const projects = loadProjects().filter(p => p.id !== id);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (_) {}
+  renderProjectsList();
+}
+
+function openProject(id) {
+  const proj = loadProjects().find(p => p.id === id);
+  if (!proj) return;
+  S.projectId    = proj.id;
+  S.createdAt    = proj.createdAt;
+  S.phase        = proj.phase || 'start';
+  S.situation    = proj.situation || '';
+  S.people       = proj.people.slice();
+  S.wants        = Object.assign({}, proj.wants);
+  S.misunderstood = Object.assign({}, proj.misunderstood);
+  S.rels         = proj.rels.slice();
+  S.phase2idx    = proj.phase2idx || 0;
+  S.selectedNode = null;
+  S.pendingNode  = null;
+  // Restore phase 1 UI so going back works
+  document.getElementById('situation-input').value = S.situation;
+  renderPills();
+  updateP1Btn();
+  if (proj.phase === 'final') {
+    showScreen('s-final');
+    document.getElementById('final-title-text').textContent = S.situation;
+    setTimeout(renderFinalMap, 100);
+  } else if (proj.phase === 'map') {
+    showScreen('s-map');
+    setTimeout(renderMapNodes, 100);
+  } else if (proj.phase === 'wants') {
+    showScreen('s-wants');
+    renderPhase2();
+  } else {
+    showScreen('s-welcome');
+  }
+}
+
+function newMap() {
   Object.assign(S, {
     situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
+    projectId: null, createdAt: null, phase: 'start',
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
@@ -1818,6 +1984,94 @@ function startOver() {
   document.getElementById('btn-p1-next').disabled    = true;
   document.getElementById('min-hint').style.display  = 'none';
   showScreen('s-welcome');
+}
+
+function formatProjDate(ts) {
+  return new Date(ts).toLocaleDateString(
+    S.lang === 'es' ? 'es' : 'en',
+    { month: 'short', day: 'numeric', year: 'numeric' }
+  );
+}
+
+function phaseLabel(phase) {
+  const key = { start: 'proj_phase_start', wants: 'proj_phase_wants', map: 'proj_phase_map', final: 'proj_phase_final' }[phase] || 'proj_phase_start';
+  return T(key);
+}
+
+function phaseClass(phase) {
+  return { start: 'project-phase-start', wants: 'project-phase-wants', map: 'project-phase-map', final: 'project-phase-final' }[phase] || 'project-phase-start';
+}
+
+function renderProjectsList() {
+  const projects  = loadProjects();
+  const listEl    = document.getElementById('projects-list');
+  const headingEl = document.getElementById('projects-list-heading');
+  if (!listEl) return;
+
+  if (projects.length === 0) {
+    headingEl.style.display = 'none';
+    listEl.innerHTML =
+      '<div class="projects-empty">' +
+        '<div class="projects-empty-icon">🌿</div>' +
+        '<div class="projects-empty-text">' + T('proj_empty_text').replace('\n', '<br>') + '</div>' +
+      '</div>';
+    return;
+  }
+
+  headingEl.style.display = '';
+  headingEl.textContent   = T('proj_your_maps');
+  listEl.innerHTML = '';
+
+  projects.forEach(proj => {
+    const card      = document.createElement('div');
+    card.className  = 'project-card';
+    card.onclick    = () => openProject(proj.id);
+    const situation = proj.situation || 'Untitled Situation';
+    const visible   = proj.people.slice(0, 5);
+    const extra     = proj.people.length - visible.length;
+    const chips     = visible.map(p => `<span class="project-person-chip">${p.name}</span>`).join('') +
+                      (extra > 0 ? `<span class="project-person-chip">+${extra}</span>` : '');
+
+    card.innerHTML =
+      '<div class="project-card-main">' +
+        '<div class="project-card-situation">' + situation + '</div>' +
+        '<div class="project-card-meta">' +
+          '<span class="project-phase-badge ' + phaseClass(proj.phase) + '">' + phaseLabel(proj.phase) + '</span>' +
+          '<span class="project-card-date">' + formatProjDate(proj.updatedAt) + '</span>' +
+        '</div>' +
+        '<div class="project-card-people">' + chips + '</div>' +
+      '</div>' +
+      '<button class="project-delete-btn" onclick="deleteProject(' + proj.id + ', event)" aria-label="Delete">✕</button>';
+
+    listEl.appendChild(card);
+  });
+}
+
+// ==================== UTILITIES ====================
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+  applyTranslations();
+  if (id === 's-projects') renderProjectsList();
+}
+
+// Initial render on page load
+renderProjectsList();
+
+function startOver() {
+  Object.assign(S, {
+    situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
+    phase2idx: 0, selectedNode: null, pendingNode: null,
+    projectId: null, createdAt: null, phase: 'start',
+  });
+  document.getElementById('situation-input').value   = '';
+  document.getElementById('stakeholder-input').value = '';
+  document.getElementById('bubbles-grid').innerHTML  = '';
+  document.getElementById('btn-p1-next').disabled    = true;
+  document.getElementById('min-hint').style.display  = 'none';
+  showScreen('s-projects');
 }
 
 </script>
