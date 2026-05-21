@@ -1159,6 +1159,7 @@ const S = {
   createdAt:    null,
   phase:        'start',  // 'start' | 'wants' | 'map' | 'final'
   mapScale:     1.0,
+  bubbleSizes:  {},  // name → scale multiplier (1.0 = default)
 };
 
 const COLOR_HEX = {
@@ -1354,6 +1355,7 @@ function backToPhase1() {
   _editingStakeholders = true;
   S.rels = [];
   S.mapScale = 1.0;
+  S.bubbleSizes = {};
   document.getElementById('situation-input').value = S.situation;
   renderPills();
   updateP1Btn();
@@ -1361,14 +1363,33 @@ function backToPhase1() {
   showScreen('s-welcome');
 }
 
-const SCALE_STEPS = [0.65, 0.8, 1.0, 1.2, 1.4];
+const BUBBLE_STEPS = [0.5, 0.65, 0.8, 1.0, 1.25, 1.55, 2.0];
 
 function resizeBubbles(dir) {
-  const cur = SCALE_STEPS.reduce((best, s, i) =>
-    Math.abs(s - S.mapScale) < Math.abs(SCALE_STEPS[best] - S.mapScale) ? i : best, 0);
-  const next = Math.max(0, Math.min(SCALE_STEPS.length - 1, cur + dir));
-  S.mapScale = SCALE_STEPS[next];
-  renderMapNodes();
+  if (S.selectedNode !== null) {
+    // Resize the selected bubble individually
+    const name = S.people[S.selectedNode].name;
+    const cur  = S.bubbleSizes[name] || 1.0;
+    const idx  = BUBBLE_STEPS.reduce((b, s, i) =>
+      Math.abs(s - cur) < Math.abs(BUBBLE_STEPS[b] - cur) ? i : b, 0);
+    const next = Math.max(0, Math.min(BUBBLE_STEPS.length - 1, idx + dir));
+    S.bubbleSizes[name] = BUBBLE_STEPS[next];
+    renderMapNodes();
+    // Restore selection after re-render
+    S.selectedNode = S.people.findIndex(p => p.name === name);
+    refreshNodes();
+    setHint(T('selected_hint').replace('{name}', `<strong>${name}</strong>`) +
+      ' &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">+/− to resize</span>');
+  } else {
+    // No bubble selected — resize all globally
+    const GSTEPS = [0.65, 0.8, 1.0, 1.2, 1.4];
+    const cur  = S.mapScale;
+    const idx  = GSTEPS.reduce((b, s, i) =>
+      Math.abs(s - cur) < Math.abs(GSTEPS[b] - cur) ? i : b, 0);
+    const next = Math.max(0, Math.min(GSTEPS.length - 1, idx + dir));
+    S.mapScale = GSTEPS[next];
+    renderMapNodes();
+  }
 }
 
 function goPhase2() {
@@ -1489,16 +1510,18 @@ function renderMapNodes() {
   const svg       = document.getElementById('rel-svg');
   container.querySelectorAll('.node-bubble').forEach(n => n.remove());
 
-  const W  = container.clientWidth;
-  const H  = container.clientHeight;
-  const n  = S.people.length;
-  const r  = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
-  const sz = Math.round(baseSize(n) * S.mapScale);
+  const W      = container.clientWidth;
+  const H      = container.clientHeight;
+  const n      = S.people.length;
+  const r      = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
+  const baseSz = Math.round(baseSize(n) * S.mapScale);
+  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   mapPositions = circlePositions(n, W / 2, H / 2, r);
 
   S.people.forEach((p, i) => {
+    const sz   = getSz(p);
     const pos  = mapPositions[i];
     const node = document.createElement('div');
     node.className   = 'node-bubble';
@@ -1512,14 +1535,15 @@ function renderMapNodes() {
     container.appendChild(node);
   });
 
-  drawLines('rel-svg', mapPositions, baseSize(n));
+  drawLines('rel-svg', mapPositions, S.people.map(p => getSz(p)));
 }
 
 function onNodeClick(idx) {
   if (S.selectedNode === null) {
     S.selectedNode = idx;
     refreshNodes();
-    setHint(T('selected_hint').replace('{name}', `<strong>${S.people[idx].name}</strong>`));
+    setHint(T('selected_hint').replace('{name}', `<strong>${S.people[idx].name}</strong>`) +
+      ' &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">+/− to resize</span>');
   } else if (S.selectedNode === idx) {
     S.selectedNode = null;
     refreshNodes();
@@ -1623,7 +1647,7 @@ document.getElementById('color-overlay').addEventListener('click', function(e) {
 
 // ==================== DRAW LINES ====================
 
-function drawLines(svgId, positions, sz) {
+function drawLines(svgId, positions, szOrSizes) {
   const svg = document.getElementById(svgId);
   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
@@ -1646,7 +1670,7 @@ function drawLines(svgId, positions, sz) {
   });
   svg.appendChild(defs);
 
-  const r = sz / 2;
+  const getR = i => (Array.isArray(szOrSizes) ? szOrSizes[i] : szOrSizes) / 2;
 
   S.rels.forEach(rel => {
     const posA = positions[rel.a];
@@ -1666,10 +1690,10 @@ function drawLines(svgId, positions, sz) {
       const len = Math.sqrt(dx*dx + dy*dy) || 1;
       const ux  = dx/len, uy = dy/len;
 
-      line.setAttribute('x1', src.x + ux * r);
-      line.setAttribute('y1', src.y + uy * r);
-      line.setAttribute('x2', tgt.x - ux * r);
-      line.setAttribute('y2', tgt.y - uy * r);
+      line.setAttribute('x1', src.x + ux * getR(srcIdx));
+      line.setAttribute('y1', src.y + uy * getR(srcIdx));
+      line.setAttribute('x2', tgt.x - ux * getR(tgtIdx));
+      line.setAttribute('y2', tgt.y - uy * getR(tgtIdx));
       line.setAttribute('marker-end', `url(#ah-${svgId}-${rel.color})`);
     } else {
       // Plain line, center-to-center (bubbles sit on top)
@@ -1710,12 +1734,14 @@ function renderFinalMap() {
   const H      = fullH - 40;  // usable area (leave room for watermark)
   const n      = S.people.length;
   const r      = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
-  const sz     = baseSize(n);
+  const baseSz = baseSize(n);
+  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${fullH}`);  // match element exactly — no SVG offset
   finalPositions = circlePositions(n, W / 2, H / 2, r);
 
   S.people.forEach((p, i) => {
+    const sz   = getSz(p);
     const pos  = finalPositions[i];
     const node = document.createElement('div');
     node.className   = 'node-bubble';
@@ -1728,7 +1754,7 @@ function renderFinalMap() {
     wrap.appendChild(node);
   });
 
-  drawLines('final-svg', finalPositions, sz);
+  drawLines('final-svg', finalPositions, S.people.map(p => getSz(p)));
 
   // Populate perspectives cards
   const grid = document.getElementById('perspectives-grid');
@@ -1789,10 +1815,11 @@ function downloadMap() {
   ctx.fillRect(0, 0, W, H);
 
   // Compute layout
-  const areaH = H - 40;
-  const rRad  = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
-  const cPos  = circlePositions(n, W / 2, areaH / 2, rRad);
-  const bRad  = sz / 2;
+  const areaH  = H - 40;
+  const rRad   = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
+  const cPos   = circlePositions(n, W / 2, areaH / 2, rRad);
+  const getSz  = p => Math.round(sz * (S.bubbleSizes[p.name] || 1.0));
+  const getBRad = p => getSz(p) / 2;
 
   // Draw relationship lines
   S.rels.forEach(rel => {
@@ -1808,8 +1835,8 @@ function downloadMap() {
       const len = Math.sqrt(dx*dx + dy*dy) || 1;
       const ux  = dx/len, uy = dy/len;
       canvasSolidArrow(ctx,
-        src.x + ux * bRad, src.y + uy * bRad,
-        tgt.x - ux * bRad, tgt.y - uy * bRad,
+        src.x + ux * getBRad(S.people[srcIdx]), src.y + uy * getBRad(S.people[srcIdx]),
+        tgt.x - ux * getBRad(S.people[tgtIdx]), tgt.y - uy * getBRad(S.people[tgtIdx]),
         color);
     } else {
       ctx.beginPath();
@@ -1824,7 +1851,9 @@ function downloadMap() {
 
   // Draw bubbles
   cPos.forEach((pos, i) => {
-    const name = S.people[i].name;
+    const p    = S.people[i];
+    const bRad = getBRad(p);
+    const bSz  = getSz(p);
 
     ctx.shadowColor   = 'rgba(0,0,0,0.10)';
     ctx.shadowBlur    = 7;
@@ -1844,7 +1873,7 @@ function downloadMap() {
     ctx.fillStyle    = '#2e2e2a';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    canvasWrapText(ctx, name, pos.x, pos.y, bRad * 1.45, bubbleFontSize(name, sz), 14);
+    canvasWrapText(ctx, p.name, pos.x, pos.y, bRad * 1.45, bubbleFontSize(p.name, bSz), 14);
   });
 
   // Legend box (4 items)
@@ -1981,6 +2010,7 @@ function saveProject() {
     misunderstood: Object.assign({}, S.misunderstood),
     rels:          S.rels.slice(),
     phase2idx:     S.phase2idx,
+    bubbleSizes:   Object.assign({}, S.bubbleSizes),
   };
   if (idx >= 0) projects[idx] = entry;
   else projects.unshift(entry);
@@ -2006,6 +2036,7 @@ function openProject(id) {
   S.misunderstood = Object.assign({}, proj.misunderstood);
   S.rels         = proj.rels.slice();
   S.phase2idx    = proj.phase2idx || 0;
+  S.bubbleSizes  = Object.assign({}, proj.bubbleSizes || {});
   S.selectedNode = null;
   S.pendingNode  = null;
   // Restore phase 1 UI so going back works
@@ -2031,7 +2062,7 @@ function newMap() {
   Object.assign(S, {
     situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
-    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0,
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
@@ -2119,7 +2150,7 @@ function startOver() {
   Object.assign(S, {
     situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
-    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0,
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
