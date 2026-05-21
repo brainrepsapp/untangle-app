@@ -526,6 +526,30 @@
       font-family: inherit; cursor: pointer; transition: all 0.15s;
     }
     .wordbank-chip:active { background: var(--sage-mid); color: white; transform: scale(0.95); }
+
+    /* Map size controls */
+    .map-size-ctrl {
+      position: absolute; bottom: 12px; left: 12px;
+      display: flex; gap: 5px; z-index: 20;
+    }
+    .map-size-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.92); border: 1px solid var(--border);
+      font-size: 20px; font-weight: 700; cursor: pointer; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-soft); transition: all 0.15s;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .map-size-btn:active { background: var(--card); transform: scale(0.88); }
+
+    /* Edit-people button in Phase 3 topbar */
+    .edit-people-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; padding: 5px 9px; line-height: 1;
+      color: var(--text-soft); border-radius: 8px;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .edit-people-btn:active { background: var(--card); }
   </style>
 </head>
 <body>
@@ -677,7 +701,7 @@
   <div class="topbar">
     <button class="back-btn" onclick="backPhase3()" aria-label="Back">‹</button>
     <div class="phase-badge" data-i18n="phase3of3">Phase 3 of 3</div>
-    <div style="width:38px"></div>
+    <button class="edit-people-btn" onclick="backToPhase1()" aria-label="Edit stakeholders">✎ People</button>
   </div>
 
   <h2 data-i18n="map_title">Map the Relationships</h2>
@@ -686,6 +710,10 @@
 
   <div class="map-container" id="map-container">
     <svg class="rel-svg" id="rel-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="map-size-ctrl">
+      <button class="map-size-btn" onclick="resizeBubbles(-1)" aria-label="Shrink bubbles">−</button>
+      <button class="map-size-btn" onclick="resizeBubbles(1)" aria-label="Grow bubbles">＋</button>
+    </div>
     <div class="map-legend">
       <div class="legend-row"><div class="legend-dot" style="background:var(--green)"></div><span data-i18n="legend_cooperation">Cooperation</span></div>
       <div class="legend-row"><div class="legend-dot" style="background:var(--yellow)"></div><span data-i18n="legend_tension">Tension</span></div>
@@ -1130,6 +1158,7 @@ const S = {
   projectId:    null,
   createdAt:    null,
   phase:        'start',  // 'start' | 'wants' | 'map' | 'final'
+  mapScale:     1.0,
 };
 
 const COLOR_HEX = {
@@ -1319,12 +1348,38 @@ function backPhase3() {
   renderPhase2();
 }
 
+let _editingStakeholders = false;
+
+function backToPhase1() {
+  _editingStakeholders = true;
+  S.rels = [];
+  S.mapScale = 1.0;
+  document.getElementById('situation-input').value = S.situation;
+  renderPills();
+  updateP1Btn();
+  saveProject();
+  showScreen('s-welcome');
+}
+
+const SCALE_STEPS = [0.65, 0.8, 1.0, 1.2, 1.4];
+
+function resizeBubbles(dir) {
+  const cur = SCALE_STEPS.reduce((best, s, i) =>
+    Math.abs(s - S.mapScale) < Math.abs(SCALE_STEPS[best] - S.mapScale) ? i : best, 0);
+  const next = Math.max(0, Math.min(SCALE_STEPS.length - 1, cur + dir));
+  S.mapScale = SCALE_STEPS[next];
+  renderMapNodes();
+}
+
 function goPhase2() {
-  S.situation   = document.getElementById('situation-input').value.trim() || 'Untitled Situation';
-  S.wants       = {};
-  S.misunderstood = {};
-  S.phase2idx   = 0;
-  S.phase       = 'wants';
+  S.situation = document.getElementById('situation-input').value.trim() || 'Untitled Situation';
+  if (!_editingStakeholders) {
+    S.wants       = {};
+    S.misunderstood = {};
+  }
+  _editingStakeholders = false;
+  S.phase2idx = 0;
+  S.phase     = 'wants';
   saveProject();
   showScreen('s-wants');
   renderPhase2();
@@ -1438,7 +1493,7 @@ function renderMapNodes() {
   const H  = container.clientHeight;
   const n  = S.people.length;
   const r  = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
-  const sz = baseSize(n);
+  const sz = Math.round(baseSize(n) * S.mapScale);
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   mapPositions = circlePositions(n, W / 2, H / 2, r);
@@ -1976,7 +2031,7 @@ function newMap() {
   Object.assign(S, {
     situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
-    projectId: null, createdAt: null, phase: 'start',
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0,
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
@@ -2064,7 +2119,7 @@ function startOver() {
   Object.assign(S, {
     situation: '', people: [], wants: {}, misunderstood: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
-    projectId: null, createdAt: null, phase: 'start',
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0,
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
