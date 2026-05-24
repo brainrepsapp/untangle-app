@@ -1794,137 +1794,247 @@ function renderFinalMap() {
 function downloadMap() {
   const wrap = document.getElementById('final-map-wrap');
   const W    = wrap.clientWidth;
-  const H    = wrap.clientHeight;
   const DPR  = Math.min(window.devicePixelRatio || 2, 3);
   const n    = S.people.length;
   const sz   = baseSize(n);
+  const PAD  = 16;
+  const getSz   = p => Math.round(sz * (S.bubbleSizes[p.name] || 1.0));
+  const getBRad = p => getSz(p) / 2;
 
+  // ── Helper: measure wrapped text lines without drawing ──
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  function textLines(text, maxW, font) {
+    measureCtx.font = font;
+    const words = (text || '').split(' ');
+    const lines = []; let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (measureCtx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+      else { line = test; }
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // ── Pre-calculate perspectives card heights ──
+  const cardCols = Math.min(n, 2);
+  const cardW    = Math.floor((W - PAD * (cardCols + 1)) / cardCols);
+  const fieldW   = cardW - 24;
+  const bodyFont = '400 11px -apple-system, system-ui, sans-serif';
+  const LH       = 15;
+
+  function cardHeight(p) {
+    const wants = (S.wants[p.name] || '').replace('(not specified)', '') || T('perspectives_empty');
+    const mis   = S.misunderstood[p.name] || T('perspectives_empty');
+    const wLines = textLines(wants, fieldW, bodyFont).length;
+    const mLines = textLines(mis,   fieldW, bodyFont).length;
+    return 40 + 12 + wLines * LH + 8 + 12 + mLines * LH + 14;
+    //     header  label1  wLines  gap  label2  mLines  bottom-pad
+  }
+
+  const rows = Math.ceil(n / cardCols);
+  let perspH = PAD + 24 + 10; // top-pad + section heading + gap
+  for (let row = 0; row < rows; row++) {
+    let rowH = 0;
+    for (let col = 0; col < cardCols; col++) {
+      const idx = row * cardCols + col;
+      if (idx < n) rowH = Math.max(rowH, cardHeight(S.people[idx]));
+    }
+    perspH += rowH + 10;
+  }
+  perspH += 24; // bottom watermark area
+
+  const mapH   = Math.round(W * 0.9);
+  const totalH = mapH + perspH;
+
+  // ── Create canvas ──
   const canvas  = document.createElement('canvas');
   canvas.width  = W * DPR;
-  canvas.height = H * DPR;
+  canvas.height = totalH * DPR;
   const ctx     = canvas.getContext('2d');
   ctx.scale(DPR, DPR);
 
-  // Background
+  // ── MAP SECTION background ──
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-  const grd = ctx.createLinearGradient(0, 0, W, H);
+  ctx.fillRect(0, 0, W, totalH);
+  const grd = ctx.createLinearGradient(0, 0, W, mapH);
   grd.addColorStop(0, 'rgba(234,242,233,0.55)');
   grd.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, mapH);
 
-  // Compute layout
-  const areaH  = H - 40;
+  // Title
+  ctx.fillStyle = '#4e9aa4';
+  ctx.font = '700 11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('RELATIONSHIP MAP', W / 2, 14);
+  ctx.fillStyle = '#2e2e2a';
+  ctx.font = '800 18px -apple-system, system-ui, sans-serif';
+  ctx.fillText(S.situation, W / 2, 30);
+
+  // Compute map node layout
+  const areaH  = mapH - 56;
+  const topOff = 52;
   const rRad   = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
-  const cPos   = circlePositions(n, W / 2, areaH / 2, rRad);
-  const getSz  = p => Math.round(sz * (S.bubbleSizes[p.name] || 1.0));
-  const getBRad = p => getSz(p) / 2;
+  const cPos   = circlePositions(n, W / 2, topOff + areaH / 2, rRad);
 
-  // Draw relationship lines
+  // Lines
   S.rels.forEach(rel => {
     const posA = cPos[rel.a], posB = cPos[rel.b];
     if (!posA || !posB) return;
     const color = COLOR_HEX[rel.color];
     const dir   = rel.direction || 'none';
-
     if (dir !== 'none') {
-      const [srcIdx, tgtIdx] = dir === 'a→b' ? [rel.a, rel.b] : [rel.b, rel.a];
-      const src = cPos[srcIdx], tgt = cPos[tgtIdx];
-      const dx  = tgt.x - src.x, dy = tgt.y - src.y;
-      const len = Math.sqrt(dx*dx + dy*dy) || 1;
-      const ux  = dx/len, uy = dy/len;
+      const [si, ti] = dir === 'a→b' ? [rel.a, rel.b] : [rel.b, rel.a];
+      const src = cPos[si], tgt = cPos[ti];
+      const dx = tgt.x-src.x, dy = tgt.y-src.y, len = Math.sqrt(dx*dx+dy*dy)||1;
+      const ux = dx/len, uy = dy/len;
       canvasSolidArrow(ctx,
-        src.x + ux * getBRad(S.people[srcIdx]), src.y + uy * getBRad(S.people[srcIdx]),
-        tgt.x - ux * getBRad(S.people[tgtIdx]), tgt.y - uy * getBRad(S.people[tgtIdx]),
-        color);
+        src.x + ux*getBRad(S.people[si]), src.y + uy*getBRad(S.people[si]),
+        tgt.x - ux*getBRad(S.people[ti]), tgt.y - uy*getBRad(S.people[ti]), color);
     } else {
-      ctx.beginPath();
-      ctx.moveTo(posA.x, posA.y);
-      ctx.lineTo(posB.x, posB.y);
-      ctx.strokeStyle = color;
-      ctx.lineWidth   = 3.5;
-      ctx.lineCap     = 'round';
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(posA.x, posA.y); ctx.lineTo(posB.x, posB.y);
+      ctx.strokeStyle = color; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.stroke();
     }
   });
 
-  // Draw bubbles
+  // Bubbles
   cPos.forEach((pos, i) => {
-    const p    = S.people[i];
-    const bRad = getBRad(p);
-    const bSz  = getSz(p);
-
-    ctx.shadowColor   = 'rgba(0,0,0,0.10)';
-    ctx.shadowBlur    = 7;
-    ctx.shadowOffsetY = 2;
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, bRad, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
-    ctx.fill();
+    const p = S.people[i], bRad = getBRad(p), bSz = getSz(p);
+    ctx.shadowColor = 'rgba(0,0,0,0.10)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 2;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, bRad, 0, Math.PI*2);
+    ctx.fillStyle = 'white'; ctx.fill();
     ctx.shadowColor = 'transparent';
-
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, bRad, 0, Math.PI * 2);
-    ctx.strokeStyle = '#8fae8b';
-    ctx.lineWidth   = 2.5;
-    ctx.stroke();
-
-    ctx.fillStyle    = '#2e2e2a';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    canvasWrapText(ctx, p.name, pos.x, pos.y, bRad * 1.45, bubbleFontSize(p.name, bSz), 14);
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, bRad, 0, Math.PI*2);
+    ctx.strokeStyle = '#8fae8b'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#2e2e2a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    canvasWrapText(ctx, p.name, pos.x, pos.y, bRad*1.45, bubbleFontSize(p.name, bSz), 14);
   });
 
-  // Legend box (4 items)
+  // Legend
   const legW = 130, legH = 88;
-  const legX = W - legW - 12;
-  const legY = H - legH - 10;
+  const legX = W - legW - 10, legY = mapH - legH - 10;
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   canvasRoundRect(ctx, legX, legY, legW, legH, 10); ctx.fill();
   ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1; ctx.stroke();
-
-  const legendItems = [
-    ['#5dab6e', 'circle', T('legend_cooperation')],
-    ['#c9961f', 'circle', T('legend_tension')],
-    ['#c95542', 'circle', T('legend_conflict')],
-    ['#6d6d65', 'arrow',  T('legend_power')],
-  ];
-  legendItems.forEach(([c, type, label], j) => {
-    const cy = legY + 14 + j * 20;
+  [['#5dab6e','circle',T('legend_cooperation')],['#c9961f','circle',T('legend_tension')],
+   ['#c95542','circle',T('legend_conflict')],['#6d6d65','arrow',T('legend_power')]
+  ].forEach(([c, type, label], j) => {
+    const cy = legY + 14 + j*20;
     if (type === 'arrow') {
-      ctx.beginPath();
-      ctx.moveTo(legX + 6,  cy);
-      ctx.lineTo(legX + 20, cy);
-      ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(legX + 20, cy);
-      ctx.lineTo(legX + 16, cy - 3.5);
-      ctx.lineTo(legX + 16, cy + 3.5);
-      ctx.closePath(); ctx.fillStyle = c; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(legX+6,cy); ctx.lineTo(legX+20,cy);
+      ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(legX+20,cy);
+      ctx.lineTo(legX+16,cy-3.5); ctx.lineTo(legX+16,cy+3.5);
+      ctx.closePath(); ctx.fillStyle=c; ctx.fill();
     } else {
-      ctx.beginPath();
-      ctx.arc(legX + 13, cy, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = c; ctx.fill();
+      ctx.beginPath(); ctx.arc(legX+13,cy,5.5,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
     }
-    ctx.fillStyle    = '#6d6d65';
-    ctx.font         = '500 11px -apple-system, system-ui, sans-serif';
-    ctx.textAlign    = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, legX + 26, cy);
+    ctx.fillStyle='#6d6d65'; ctx.font='500 11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(label, legX+26, cy);
   });
 
+  // ── PERSPECTIVES SECTION ──
+  ctx.fillStyle = '#eaf2e9';
+  ctx.fillRect(0, mapH, W, perspH);
+
+  // Divider line
+  ctx.strokeStyle = '#c8dcc5'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mapH); ctx.lineTo(W, mapH); ctx.stroke();
+
+  // Section heading
+  let yOff = mapH + PAD;
+  ctx.fillStyle = '#4e9aa4';
+  ctx.font = '700 12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('PERSPECTIVES', PAD, yOff);
+  yOff += 24 + 6;
+
+  // Cards
+  for (let row = 0; row < rows; row++) {
+    let rowH = 0;
+    for (let col = 0; col < cardCols; col++) {
+      const idx = row * cardCols + col;
+      if (idx >= n) break;
+      const p    = S.people[idx];
+      const cH   = cardHeight(p);
+      rowH = Math.max(rowH, cH);
+      const cX   = PAD + col * (cardW + PAD);
+      const cY   = yOff;
+      const wants = (S.wants[p.name] || '').replace('(not specified)', '') || T('perspectives_empty');
+      const mis   = S.misunderstood[p.name] || T('perspectives_empty');
+
+      // Card bg
+      ctx.fillStyle = 'white';
+      canvasRoundRect(ctx, cX, cY, cardW, cH, 8); ctx.fill();
+      ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Header strip
+      ctx.fillStyle = '#eaf2e9';
+      ctx.fillRect(cX+1, cY+1, cardW-2, 30);
+      ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cX, cY+31); ctx.lineTo(cX+cardW, cY+31); ctx.stroke();
+
+      // Avatar
+      const initials = p.name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      ctx.fillStyle = '#8fae8b';
+      ctx.beginPath(); ctx.arc(cX+10+9, cY+15, 9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.font = '700 8px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(initials, cX+19, cY+15);
+
+      // Name
+      ctx.fillStyle = '#2e2e2a';
+      ctx.font = '700 11px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.name, cX+34, cY+15);
+
+      // Fields
+      let fy = cY + 40;
+      const fx = cX + 12;
+
+      // Wants label
+      ctx.fillStyle = '#4e9aa4';
+      ctx.font = '700 8.5px -apple-system, system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.fillText(T('perspectives_wants').toUpperCase(), fx, fy);
+      fy += 12;
+
+      // Wants text
+      const wLines = textLines(wants, fieldW, bodyFont);
+      const isWEmpty = !S.wants[p.name] || S.wants[p.name] === '(not specified)';
+      ctx.fillStyle = isWEmpty ? '#9d9d95' : '#2e2e2a';
+      ctx.font = isWEmpty ? 'italic 11px -apple-system, system-ui, sans-serif' : bodyFont;
+      wLines.forEach(l => { ctx.fillText(l, fx, fy); fy += LH; });
+      fy += 8;
+
+      // Misunderstood label
+      ctx.fillStyle = '#4e9aa4';
+      ctx.font = '700 8.5px -apple-system, system-ui, sans-serif';
+      ctx.fillText(T('perspectives_mis').toUpperCase(), fx, fy);
+      fy += 12;
+
+      // Misunderstood text
+      const mLines = textLines(mis, fieldW, bodyFont);
+      const isMEmpty = !S.misunderstood[p.name];
+      ctx.fillStyle = isMEmpty ? '#9d9d95' : '#2e2e2a';
+      ctx.font = isMEmpty ? 'italic 11px -apple-system, system-ui, sans-serif' : bodyFont;
+      mLines.forEach(l => { ctx.fillText(l, fx, fy); fy += LH; });
+    }
+    yOff += rowH + 10;
+  }
+
   // Watermark
-  ctx.fillStyle    = 'rgba(143,174,139,0.8)';
-  ctx.font         = 'italic 11px -apple-system, system-ui, sans-serif';
-  ctx.textAlign    = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText('🌿 Untangle', 14, H - 8);
+  ctx.fillStyle = 'rgba(143,174,139,0.8)';
+  ctx.font = 'italic 11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('🌿 Untangle', PAD, totalH - 8);
 
   try {
-    const link    = document.createElement('a');
+    const link = document.createElement('a');
     link.download = `Untangle — ${S.situation}.png`;
-    link.href     = canvas.toDataURL('image/png');
+    link.href = canvas.toDataURL('image/png');
     link.click();
   } catch (_) {
     window.open(canvas.toDataURL('image/png'), '_blank');
