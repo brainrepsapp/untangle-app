@@ -550,17 +550,90 @@
       transition: background 0.15s; white-space: nowrap;
     }
     .edit-people-btn:active { background: var(--card); }
+
+    /* ============================================================
+       LANDING PAGE
+    ============================================================ */
+    #s-landing {
+      background: linear-gradient(165deg, #e6f0e5 0%, var(--white) 60%);
+      align-items: center; justify-content: center; text-align: center;
+      gap: 0; padding: 32px 24px 40px;
+    }
+    .landing-logo { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 10px; }
+    .landing-logo-icon { font-size: 32px; }
+    .landing-logo-text { font-size: 32px; font-weight: 800; color: var(--teal); letter-spacing: -0.5px; }
+    .landing-sub { font-size: 14px; color: var(--text-soft); line-height: 1.55; max-width: 280px; margin: 0 auto 36px; }
+    .landing-cards { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 360px; }
+    .landing-card {
+      background: white; border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 22px 20px; cursor: pointer;
+      transition: all 0.2s; text-align: left;
+      box-shadow: 0 3px 16px rgba(0,0,0,0.06);
+    }
+    .landing-card:active { transform: scale(0.98); }
+    .landing-card.classroom:active,
+    .landing-card.classroom:hover { border-color: var(--sage); box-shadow: 0 4px 20px rgba(143,174,139,0.25); }
+    .landing-card.professional:active,
+    .landing-card.professional:hover { border-color: var(--teal); box-shadow: 0 4px 20px rgba(78,154,164,0.22); }
+    .landing-card-icon { font-size: 28px; margin-bottom: 10px; }
+    .landing-card-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 5px; }
+    .landing-card-desc { font-size: 13px; color: var(--text-soft); line-height: 1.5; }
+    .landing-card-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px; padding: 9px 18px; border-radius: 50px;
+      font-size: 13px; font-weight: 700; border: none; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .landing-card.classroom .landing-card-btn { background: var(--sage-pale); color: #4a7047; }
+    .landing-card.professional .landing-card-btn { background: var(--teal-light); color: var(--teal-dark); }
+
+    /* Mode badge on projects home */
+    .mode-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 50px;
+      letter-spacing: 0.4px;
+    }
+    .mode-badge.classroom   { background: var(--sage-pale); color: #4a7047; }
+    .mode-badge.professional { background: var(--teal-light); color: var(--teal-dark); }
   </style>
 </head>
 <body>
 
 <!-- ======================================================
+     SCREEN LANDING
+====================================================== -->
+<div id="s-landing" class="screen active">
+  <div class="landing-logo">
+    <span class="landing-logo-icon">🌿</span>
+    <span class="landing-logo-text">Untangle</span>
+  </div>
+  <p class="landing-sub">A conflict mapping tool for peacebuilders, educators, and practitioners.</p>
+
+  <div class="landing-cards">
+    <div class="landing-card classroom" onclick="selectMode('classroom')">
+      <div class="landing-card-icon">🏫</div>
+      <div class="landing-card-title">Classroom</div>
+      <div class="landing-card-desc">Simple stakeholder mapping for students and educators. Guided steps, clean visuals, easy to use in a lesson.</div>
+      <button class="landing-card-btn">Enter Classroom →</button>
+    </div>
+
+    <div class="landing-card professional" onclick="selectMode('professional')">
+      <div class="landing-card-icon">🌍</div>
+      <div class="landing-card-title">Professional</div>
+      <div class="landing-card-desc">Full conflict analysis for practitioners and researchers. More detail, more freedom, deeper analysis tools.</div>
+      <button class="landing-card-btn">Enter Professional →</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ======================================================
      SCREEN PROJECTS (Home)
 ====================================================== -->
-<div id="s-projects" class="screen active">
+<div id="s-projects" class="screen">
 
   <div class="topbar">
-    <div style="width:38px"></div>
+    <button class="back-btn" onclick="showScreen('s-landing')" aria-label="Switch mode">‹</button>
     <div class="logo-wrap">
       <span class="logo-icon">🌿</span>
       <span class="logo-text">Untangle</span>
@@ -569,6 +642,7 @@
   </div>
 
   <div class="projects-hero">
+    <div id="mode-badge-home"></div>
   </div>
 
   <button class="btn-new-map" onclick="newMap()">
@@ -1160,6 +1234,7 @@ const S = {
   phase:        'start',  // 'start' | 'wants' | 'map' | 'final'
   mapScale:     1.0,
   bubbleSizes:  {},  // name → scale multiplier (1.0 = default)
+  mode:         null,  // 'classroom' | 'professional'
 };
 
 const COLOR_HEX = {
@@ -2095,7 +2170,24 @@ function canvasRoundRect(ctx, x, y, w, h, r) {
 
 // ==================== SAVED PROJECTS ====================
 
-const STORAGE_KEY = 'untangle_v1';
+const STORAGE_KEY  = 'untangle_v1';
+const MODE_KEY     = 'untangle_mode';
+
+function selectMode(mode) {
+  S.mode = mode;
+  try { localStorage.setItem(MODE_KEY, mode); } catch (_) {}
+  updateModeBadge();
+  showScreen('s-projects');
+}
+
+function updateModeBadge() {
+  const el = document.getElementById('mode-badge-home');
+  if (!el) return;
+  if (!S.mode) { el.innerHTML = ''; return; }
+  const label = S.mode === 'classroom' ? '🏫 Classroom' : '🌍 Professional';
+  const cls   = S.mode === 'classroom' ? 'classroom' : 'professional';
+  el.innerHTML = `<span class="mode-badge ${cls}">${label}</span>`;
+}
 
 function loadProjects() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
@@ -2253,8 +2345,16 @@ function showScreen(id) {
   if (id === 's-projects') renderProjectsList();
 }
 
-// Initial render on page load
-renderProjectsList();
+// ── On page load: restore saved mode, skip landing if already chosen ──
+(function init() {
+  const savedMode = (() => { try { return localStorage.getItem(MODE_KEY); } catch(_) { return null; } })();
+  if (savedMode === 'classroom' || savedMode === 'professional') {
+    S.mode = savedMode;
+    updateModeBadge();
+    showScreen('s-projects');
+  }
+  renderProjectsList();
+})();
 
 function startOver() {
   Object.assign(S, {
