@@ -1,33 +1,4304 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Untangle: Conflict Mapping</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#fdf8f3">
+  <title>Untangle</title>
   <style>
-    :root { --bg: #0B0B0D; --card: #131315; --border: #242428; --text1: #EDE9E0; --text2: #8A8A90; --text3: #4A4A52; --accent: #8fae8b; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text1); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; padding: 64px 20px; text-align: center; }
-    .icon { font-size: 64px; margin-bottom: 16px; }
-    h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
-    .sub { color: var(--text2); font-size: 16px; margin-bottom: 48px; }
-    .links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .links a { background: var(--card); border: 1px solid var(--border); color: var(--accent); text-decoration: none; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; }
-    .links a:hover { background: var(--border); }
-    .launch { display: inline-block; background: var(--accent); color: #0B0B0D; font-weight: 800; font-size: 18px; padding: 18px 40px; border-radius: 14px; text-decoration: none; margin-bottom: 16px; letter-spacing: -0.3px; }
-    .launch:hover { opacity: 0.9; }
-    .launch-hint { color: var(--text3); font-size: 13px; margin-bottom: 40px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --sage:       #8fae8b;
+      --sage-mid:   #a8c4a4;
+      --sage-light: #c8dcc5;
+      --sage-pale:  #eaf2e9;
+      --white:      #fdf8f3;
+      --card:       #f5f3ee;
+      --teal:       #4e9aa4;
+      --teal-dark:  #3d8590;
+      --teal-light: #d0e9ed;
+      --text:       #2e2e2a;
+      --text-soft:  #6d6d65;
+      --border:     #e2ddd6;
+      --green:      #5dab6e;
+      --yellow:     #e8b800;
+      --red:        #c95542;
+      --radius-sm:  14px;
+      --radius:     22px;
+      --radius-lg:  32px;
+    }
+
+    html { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--white); color: var(--text);
+      min-height: 100vh; overflow-x: hidden;
+      /* Respect Dynamic Island / notch / home indicator */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* ---- SCREENS ---- */
+    .screen {
+      display: none; flex-direction: column;
+      min-height: 100vh; min-height: 100dvh;
+      padding: 0 20px 36px;
+      animation: fadeUp 0.35s ease;
+    }
+    .screen.active { display: flex; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- SPACERS ---- */
+    .sp-4  { height: 4px;  flex-shrink: 0; }
+    .sp-6  { height: 6px;  flex-shrink: 0; }
+    .sp-8  { height: 8px;  flex-shrink: 0; }
+    .sp-10 { height: 10px; flex-shrink: 0; }
+    .sp-12 { height: 12px; flex-shrink: 0; }
+    .sp-14 { height: 14px; flex-shrink: 0; }
+    .sp-16 { height: 16px; flex-shrink: 0; }
+    .sp-20 { height: 20px; flex-shrink: 0; }
+    .sp-24 { height: 24px; flex-shrink: 0; }
+    .sp-32 { height: 32px; flex-shrink: 0; }
+    .flex-1 { flex: 1; }
+
+    /* ---- TYPE ---- */
+    h1 { font-size: 24px; font-weight: 700; line-height: 1.25; }
+    h2 { font-size: 19px; font-weight: 600; line-height: 1.3; }
+    .subtext { font-size: 14px; color: var(--text-soft); line-height: 1.6; }
+    .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); }
+
+    /* ---- TOPBAR ---- */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 0 10px; flex-shrink: 0;
+    }
+    .logo-wrap  { display: flex; align-items: center; gap: 7px; }
+    .logo-text  { font-size: 20px; font-weight: 800; color: var(--teal); letter-spacing: -0.4px; }
+    .logo-icon  { font-size: 18px; }
+    .phase-badge { font-size: 12px; font-weight: 600; color: var(--teal); background: var(--teal-light); padding: 5px 13px; border-radius: 50px; }
+
+    /* ---- INPUTS ---- */
+    input[type="text"], textarea {
+      width: 100%; padding: 13px 16px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 16px; font-family: inherit; color: var(--text);
+      background: white; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none; appearance: none;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(78,154,164,0.16);
+    }
+    textarea { resize: none; line-height: 1.6; }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 15px 24px; border-radius: 50px;
+      font-size: 15px; font-weight: 700; border: none; cursor: pointer;
+      transition: all 0.18s; font-family: inherit; -webkit-appearance: none;
+      flex-shrink: 0;
+    }
+    .btn-primary { background: var(--teal); color: white; box-shadow: 0 4px 18px rgba(78,154,164,0.32); }
+    .btn-primary:active { background: var(--teal-dark); transform: scale(0.97); }
+    .btn-ghost { background: transparent; color: var(--text-soft); font-size: 14px; font-weight: 500; padding: 10px 14px; }
+    .btn-ghost:active { color: var(--text); transform: scale(0.97); }
+    .btn-outline { background: white; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:active { background: var(--card); transform: scale(0.97); }
+    .btn-full { width: 100%; }
+    .btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+    .icon-btn {
+      width: 50px; height: 50px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; border: none; cursor: pointer;
+      transition: transform 0.15s; -webkit-appearance: none; flex-shrink: 0;
+    }
+    .icon-btn:active { transform: scale(0.88); }
+
+    .settings-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px; padding: 6px; line-height: 1;
+      color: var(--text-soft); border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .settings-btn:active { background: var(--card); }
+    .back-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px; padding: 6px 8px; line-height: 1;
+      color: var(--text-soft); border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .back-btn:active { background: var(--card); }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.55); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* ============================================================
+       SCREEN 1 — WELCOME
+    ============================================================ */
+    #s-welcome {
+      background: linear-gradient(165deg, #e6f0e5 0%, var(--white) 58%);
+    }
+    .welcome-hero { text-align: center; padding: 28px 0 22px; flex-shrink: 0; }
+    .hero-logo-sub  { font-size: 14px; color: var(--text-soft); font-style: italic; margin-top: 6px; }
+
+    .add-row { display: flex; gap: 10px; align-items: center; }
+    .add-row input { flex: 1; }
+    .bubbles-grid { display: flex; flex-wrap: wrap; gap: 8px; min-height: 8px; padding-top: 14px; }
+    .pill-bubble {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 10px 7px 14px;
+      background: var(--sage-pale); border: 1.5px solid var(--sage-light);
+      border-radius: 50px; font-size: 13px; font-weight: 500; color: var(--text);
+      animation: popIn 0.28s cubic-bezier(0.34, 1.5, 0.64, 1);
+    }
+    .pill-x {
+      font-size: 13px; color: var(--text-soft); cursor: pointer;
+      line-height: 1; width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; transition: background 0.15s;
+    }
+    .pill-x:hover { background: rgba(0,0,0,0.08); }
+    .min-hint { font-size: 13px; color: var(--text-soft); font-style: italic; text-align: center; padding-top: 8px; }
+
+    /* ============================================================
+       SCREEN 2 — WANTS
+    ============================================================ */
+    #s-wants { background: var(--white); overflow-y: auto; }
+
+    .progress-track { display: flex; gap: 5px; justify-content: center; padding: 2px 0; }
+    .prog-dot { height: 5px; border-radius: 3px; background: var(--border); transition: all 0.3s ease; flex: 1; max-width: 32px; }
+    .prog-dot.done   { background: var(--sage); }
+    .prog-dot.active { background: var(--teal); }
+
+    .wants-hero { display: flex; justify-content: center; padding: 18px 0 12px; flex-shrink: 0; }
+    .hero-bubble {
+      width: 96px; height: 96px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--sage-pale), white);
+      border: 3px solid var(--sage);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--text);
+      text-align: center; padding: 12px; word-break: break-word; line-height: 1.3;
+    }
+
+    .insight-card { background: var(--sage-pale); border-radius: var(--radius-sm); padding: 12px 16px; border-left: 3px solid var(--sage-mid); flex-shrink: 0; }
+    .insight-card p { font-size: 13px; color: var(--text-soft); font-style: italic; line-height: 1.55; }
+
+    /* ============================================================
+       SCREEN 3 — MAP
+    ============================================================ */
+    #s-map { background: var(--white); padding-left: 14px; padding-right: 14px; }
+
+    .map-hint-bar {
+      background: var(--teal-light); border-radius: var(--radius-sm);
+      padding: 11px 16px; text-align: center;
+      font-size: 13px; font-weight: 500; color: var(--teal-dark);
+      margin: 4px 0 8px; min-height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .map-container {
+      position: relative; flex: 1; min-height: 340px;
+      background: linear-gradient(148deg, var(--sage-pale) 0%, white 100%);
+      border-radius: var(--radius); border: 1px solid var(--border);
+      overflow: hidden; margin-bottom: 12px;
+    }
+    .rel-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    .shape-swatch { width:26px; height:26px; border-radius:4px; cursor:pointer; border:2.5px solid transparent; background:white; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 5px rgba(0,0,0,0.18); transition:transform 0.12s; flex-shrink:0; }
+    .shape-swatch:active { transform:scale(0.85); }
+    .shape-swatch.active { border-color:#2e2e2a; transform:scale(1.2); }
+    .palette-divider { width:1px; height:26px; background:var(--border); margin:0 2px; flex-shrink:0; }
+
+    .node-bubble {
+      position: absolute; border-radius: 50%;
+      background: white; border: 2.5px solid var(--sage);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--text);
+      text-align: center; padding: 5px;
+      overflow-wrap: break-word; word-break: normal; line-height: 1.25;
+      cursor: pointer; user-select: none; -webkit-user-select: none;
+      pointer-events: auto;
+      transform: translate(-50%, -50%);
+      transition: transform 0.22s cubic-bezier(0.34, 1.5, 0.64, 1),
+                  border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 9px rgba(0,0,0,0.08); z-index: 10;
+    }
+    .node-bubble.selected {
+      border-color: var(--teal); background: var(--teal-light);
+      transform: translate(-50%, -50%) scale(1.14);
+      animation: pulseSel 1.8s ease-in-out infinite;
+    }
+    @keyframes pulseSel {
+      0%,100% { box-shadow: 0 0 0 5px rgba(78,154,164,0.2), 0 4px 12px rgba(0,0,0,0.1); }
+      50%      { box-shadow: 0 0 0 9px rgba(78,154,164,0.07), 0 4px 12px rgba(0,0,0,0.1); }
+    }
+    /* Triangle border: node background = border color; ::before with inset clip-path = fill color */
+    .node-bubble.tri-border::before {
+      content: ''; position: absolute; inset: 0;
+      clip-path: polygon(50% 6%, 94% 86%, 6% 86%);
+      background: var(--tri-fill, white);
+    }
+    /* Text inside node-bubbles: z-index:1 so it renders above the ::before fill layer */
+    .node-bubble .bubble-text { position: relative; z-index: 1; }
+
+    .map-legend {
+      position: absolute; bottom: 12px; right: 12px;
+      background: rgba(255,255,255,0.94);
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      /* Below bubbles (z 10) and click-through, so it never hides or blocks a character */
+      z-index: 5; pointer-events: none;
+    }
+    .map-legend .legend-edit-btn { pointer-events: auto; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; color: var(--text-soft); padding: 3px 0; }
+    .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .legend-arrow { width: 18px; height: 11px; flex-shrink: 0; display: flex; align-items: center; }
+
+    /* ============================================================
+       PRO MODE — PAN/ZOOM, DRAG, PALETTES, LEGEND EDITOR
+    ============================================================ */
+    /* Above the legend (z 5) so characters are never hidden behind it; pointer-events
+       none lets taps on empty map space and the legend's edit button pass through
+       (bubbles re-enable their own pointer-events). */
+    #map-viewport { position:absolute; inset:0; transform-origin:center center; will-change:transform; z-index:6; pointer-events:none; }
+
+    /* Bubble color palette (shown in hint bar when bubble selected, Pro only) */
+    .pro-palette { display:flex; flex-direction:column; gap:5px; align-items:center; margin-top:8px; }
+    .palette-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; row-gap:5px; justify-content:center; max-width:100%; }
+    .palette-label { font-size:10px; font-weight:700; color:var(--text-soft); width:36px; text-align:right; flex-shrink:0; letter-spacing:0.02em; }
+    .cp-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2.5px solid transparent;
+      box-shadow:0 1px 5px rgba(0,0,0,0.18); transition:transform 0.12s; flex-shrink:0; }
+    .cp-swatch:active { transform:scale(0.85); }
+    .cp-swatch.active { border-color:#2e2e2a; transform:scale(1.2); }
+    /* Border swatches: white fill + colored outline so user sees border color, not fill */
+    .cp-swatch.border-sw { background:#fff !important; }
+    /* "Auto" border reset swatch: white with dashed sage ring */
+    .cp-swatch.border-auto { background:#fff !important; border-style:dashed !important; border-color:#8fae8b !important; }
+    .cp-swatch.border-auto.active { border-color:#2e2e2a !important; transform:scale(1.2); }
+
+    /* Legend edit link */
+    .legend-edit-row { margin-top:5px; text-align:right; }
+    .legend-edit-btn { font-size:10px; color:var(--teal); background:none; border:none; cursor:pointer; padding:0; font-family:inherit; font-weight:600; }
+
+    /* Legend editor sheet */
+    .legend-type-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .legend-color-dot { width:22px; height:22px; border-radius:50%; flex-shrink:0; cursor:pointer; border:2.5px solid var(--border); transition:transform 0.12s; }
+    .legend-color-dot:active { transform:scale(0.9); }
+    .legend-color-dot.open { border-color:var(--teal); box-shadow:0 0 0 3px rgba(78,154,164,0.25); }
+    .legend-type-input { flex:1; border:none; background:transparent; font-size:15px; font-family:inherit; padding:4px 2px; outline:none; border-bottom:1.5px solid transparent; transition:border-color 0.15s; }
+    .legend-type-input:focus { border-bottom-color:var(--teal); }
+    .legend-del-btn { color:var(--text-soft); background:none; border:none; cursor:pointer; font-size:20px; padding:2px 4px; line-height:1; }
+    .legend-del-btn:hover { color:var(--red); }
+    .legend-mini-palette { display:flex; gap:6px; flex-wrap:wrap; padding:8px 0 4px 32px; }
+    .legend-mini-swatch { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; box-shadow:0 1px 4px rgba(0,0,0,0.15); transition:transform 0.12s; }
+    .legend-mini-swatch.active { border-color:#2e2e2a; transform:scale(1.18); }
+    .legend-add-btn { margin-top:14px; width:100%; background:var(--sage-pale); color:#4a7047;
+      border:1.5px solid var(--sage); border-radius:var(--radius-sm); padding:11px;
+      font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; }
+    .legend-add-btn:active { background:var(--sage); }
+
+    /* ============================================================
+       COLOR MODAL
+    ============================================================ */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(25,25,20,0.42); z-index: 200;
+      align-items: flex-end; justify-content: center;
+      padding: 0 12px 24px;
+    }
+    .overlay.open { display: flex; animation: overlayIn 0.2s ease; }
+    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+    .sheet {
+      background: white;
+      border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+      padding: 28px 20px 24px; width: 100%; max-width: 430px;
+      animation: sheetUp 0.3s cubic-bezier(0.25, 1.25, 0.65, 1);
+    }
+    @keyframes sheetUp { from { transform: translateY(110%); } to { transform: translateY(0); } }
+    .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+    .sheet-title { font-size: 15px; font-weight: 600; color: var(--text); text-align: center; margin-bottom: 4px; }
+    .sheet-pair  { font-size: 14px; color: var(--teal); font-weight: 700; text-align: center; margin-bottom: 20px; }
+
+    .color-choice {
+      display: flex; align-items: center; gap: 14px; padding: 13px 16px;
+      border-radius: var(--radius-sm); border: 2px solid var(--border);
+      cursor: pointer; transition: all 0.15s; margin-bottom: 10px; background: white;
+    }
+    .color-choice:active { transform: scale(0.97); }
+    .color-choice.green  { border-color: var(--green);  background: #f2faf4; }
+    .color-choice.yellow { border-color: var(--yellow);  background: #fdfcea; }
+    .color-choice.red    { border-color: var(--red);    background: #fdf1ef; }
+    .choice-dot   { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+    .choice-label { font-size: 15px; font-weight: 700; color: var(--text); }
+    .choice-sub   { font-size: 12px; color: var(--text-soft); margin-top: 2px; line-height: 1.4; }
+
+    /* Color choice unselected state */
+    .color-choices .color-choice { opacity: 1; transition: opacity 0.2s, border-width 0.2s; }
+    .color-choices.has-selection .color-choice:not(.selected) { opacity: 0.45; }
+    .color-choice.selected { border-width: 3px; }
+
+    /* Direction toggle */
+    .dir-section {
+      margin: 14px 0 10px; padding: 14px 16px;
+      background: #f7f7f5; border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      animation: fadeUp 0.2s ease;
+    }
+    .dir-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-soft); margin-bottom: 10px;
+    }
+    .dir-toggle { display: flex; gap: 6px; }
+    .dir-opt {
+      flex: 1; padding: 9px 6px; border-radius: var(--radius-sm);
+      border: 2px solid var(--border); background: white;
+      font-size: 11px; font-weight: 700; color: var(--text-soft);
+      cursor: pointer; text-align: center; transition: all 0.15s;
+      font-family: inherit; line-height: 1.35;
+    }
+    .dir-opt:active { transform: scale(0.97); }
+    .dir-opt.active { border-color: var(--teal); background: var(--teal-light); color: var(--teal-dark); }
+
+    /* Pro line-style section */
+    .line-style-section {
+      margin: 10px 0 0; padding: 12px 14px;
+      background: #f7f7f5; border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      animation: fadeUp 0.2s ease;
+    }
+    .line-style-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .line-opt {
+      flex: 1; padding: 8px 4px; border-radius: var(--radius-sm);
+      border: 2px solid var(--border); background: white;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+      font-family: inherit; display: flex; align-items: center;
+      justify-content: center; gap: 5px; font-size: 11px; font-weight: 700;
+      color: var(--text-soft);
+    }
+    .line-opt:active { transform: scale(0.97); }
+    .line-opt.active { border-color: var(--teal); background: var(--teal-light); color: var(--teal-dark); }
+    .thick-row { display: flex; gap: 6px; align-items: center; }
+    .thick-opt {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 2px solid var(--border); background: white;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; transition: all 0.15s; flex-shrink: 0;
+    }
+    .thick-opt.active { border-color: var(--teal); background: var(--teal-light); }
+    .thick-opt:active { transform: scale(0.93); }
+    .thick-swatch { border-radius: 2px; background: #6d6d65; }
+
+    .cancel-btn {
+      display: block; width: 100%; text-align: center;
+      font-size: 14px; color: var(--text-soft); padding: 12px 0 0;
+      cursor: pointer; background: none; border: none; font-family: inherit;
+    }
+    .cancel-btn:active { color: var(--text); }
+
+    /* ============================================================
+       SETTINGS OVERLAY
+    ============================================================ */
+    .settings-sheet .sheet { max-width: 340px; }
+    .settings-section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-soft); margin-bottom: 10px; }
+    .lang-toggle { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lang-btn {
+      padding: 7px 14px; text-align: center;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: 20px; font-family: inherit; color: var(--text);
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .lang-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
+    .lang-btn:not(.active):active { background: var(--sage-pale); }
+
+    /* ============================================================
+       FINAL SCREEN
+    ============================================================ */
+    #s-final {
+      background: linear-gradient(165deg, var(--teal-light) 0%, var(--white) 52%);
+      overflow-y: auto;
+    }
+    .final-headline     { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--teal); text-align: center; }
+    .final-situation-name { font-size: 22px; font-weight: 800; color: var(--text); text-align: center; line-height: 1.2; }
+    .final-map-wrap {
+      position: relative; flex: 1; min-height: 340px;
+      background: white; border-radius: var(--radius);
+      border: 1px solid var(--border); overflow: hidden;
+      margin: 10px 0; box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+    }
+    .final-watermark { position: absolute; bottom: 10px; left: 14px; font-size: 11px; color: var(--sage); font-style: italic; opacity: 0.75; pointer-events: none; }
+    .final-legend { position: absolute; bottom: 10px; right: 12px; background: rgba(255,255,255,0.92); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); pointer-events: none; }
+
+    /* ============================================================
+       PROJECTS HOME SCREEN
+    ============================================================ */
+    .projects-hero { text-align: center; padding: 8px 0 20px; flex-shrink: 0; }
+    .projects-sub  { font-size: 15px; color: var(--text-soft); font-style: italic; }
+    .btn-new-map {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 17px; border-radius: var(--radius);
+      background: var(--teal); color: white;
+      font-size: 17px; font-weight: 700; border: none; cursor: pointer;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    .btn-new-map:active { background: var(--teal-dark); }
+    .projects-list-heading {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-soft); margin: 20px 0 10px;
+      flex-shrink: 0;
+    }
+    .projects-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--text-soft); text-align: center; padding: 48px 0;
+    }
+    .projects-empty-icon { font-size: 36px; opacity: 0.35; }
+    .projects-empty-text { font-size: 15px; line-height: 1.5; }
+    .project-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 15px 14px;
+      margin-bottom: 10px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: flex-start; gap: 10px;
+      transition: box-shadow 0.15s;
+    }
+    .project-card:active { box-shadow: 0 3px 14px rgba(0,0,0,0.09); }
+    .project-card-main   { flex: 1; min-width: 0; }
+    .project-card-situation { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-card-meta  { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .project-phase-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 50px; }
+    .project-phase-start  { background: var(--sage-pale);  color: #5a7a58; }
+    .project-phase-wants  { background: var(--teal-light); color: var(--teal-dark); }
+    .project-phase-map    { background: var(--teal-light); color: var(--teal-dark); }
+    .project-phase-final  { background: #e6f4ea; color: #2e7038; }
+    .project-card-date  { font-size: 12px; color: var(--text-soft); }
+    .project-card-people { display: flex; flex-wrap: wrap; gap: 5px; }
+    .project-person-chip { font-size: 11px; background: var(--card); border: 1px solid var(--border); color: var(--text-soft); padding: 2px 9px; border-radius: 50px; }
+    .project-delete-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-soft); font-size: 16px; padding: 4px 6px; line-height: 1;
+      opacity: 0.45; flex-shrink: 0; border-radius: 6px; transition: opacity 0.15s;
+    }
+    .project-delete-btn:active { opacity: 1; color: var(--red); }
+
+    /* Perspectives */
+    .perspectives-section { flex-shrink: 0; margin-bottom: 8px; }
+    .perspectives-heading {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--teal);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px;
+    }
+    .perspectives-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 10px;
+    }
+    .perspective-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .perspective-card-header {
+      background: var(--sage-pale); border-bottom: 1px solid var(--border);
+      padding: 9px 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .perspective-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--sage); color: white;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .perspective-name {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .perspective-body { padding: 10px 12px; }
+    .perspective-field { margin-bottom: 8px; }
+    .perspective-field:last-child { margin-bottom: 0; }
+    .perspective-field-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--teal); margin-bottom: 3px;
+    }
+    .perspective-field-value { font-size: 12px; color: var(--text); line-height: 1.45; }
+    .perspective-field-empty { font-size: 12px; color: var(--text-soft); font-style: italic; }
+
+    /* Debrief */
+    .debrief-section {
+      background: var(--sage-pale); border-radius: var(--radius);
+      padding: 20px; border: 1px solid var(--sage-light);
+      margin-bottom: 8px; flex-shrink: 0;
+    }
+    .debrief-heading { font-size: 16px; font-weight: 800; color: var(--teal); display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .debrief-desc { font-size: 13px; color: var(--text-soft); font-style: italic; margin-bottom: 16px; }
+    .debrief-q { margin-bottom: 14px; }
+    .debrief-q:last-child { margin-bottom: 0; }
+    .debrief-q-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .debrief-q textarea { min-height: 64px; font-size: 14px; border-color: var(--sage-light); background: rgba(255,255,255,0.8); }
+    .debrief-starter {
+      font-size: 12px; color: var(--teal-dark); font-style: italic;
+      margin-bottom: 6px; padding: 6px 10px;
+      background: var(--teal-light); border-radius: 8px;
+      display: none;
+    }
+
+    /* ============================================================
+       LANGUAGE SUPPORTS
+    ============================================================ */
+
+    /* Settings toggle */
+    .supports-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+    .supports-row-label { font-size: 15px; color: var(--text); font-weight: 500; }
+    .toggle-switch {
+      position: relative; width: 46px; height: 27px;
+      background: var(--border); border-radius: 14px;
+      cursor: pointer; transition: background 0.22s;
+      border: none; flex-shrink: 0;
+    }
+    .toggle-switch.on { background: var(--teal); }
+    .toggle-knob {
+      position: absolute; top: 3px; left: 3px;
+      width: 21px; height: 21px; border-radius: 50%;
+      background: white; transition: transform 0.22s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.22);
+      pointer-events: none;
+    }
+    .toggle-switch.on .toggle-knob { transform: translateX(19px); }
+
+    /* Emoji on modal color choices */
+    .choice-emoji { font-size: 22px; flex-shrink: 0; line-height: 1; }
+
+    /* Sentence frame chips */
+    .frame-section { margin-bottom: 8px; display: none; }
+    .frame-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.9px; color: var(--teal-dark); margin-bottom: 6px;
+    }
+    .frame-chips { display: flex; flex-direction: column; gap: 5px; }
+    .frame-chip {
+      text-align: left; padding: 8px 12px;
+      background: var(--teal-light); border: 1.5px solid rgba(78,154,164,0.3);
+      border-radius: var(--radius-sm); font-size: 13px; color: var(--teal-dark);
+      font-weight: 500; font-family: inherit; cursor: pointer;
+      transition: all 0.15s; line-height: 1.4;
+    }
+    .frame-chip:active { background: var(--teal); color: white; transform: scale(0.98); }
+
+    /* Word bank */
+    .wordbank-section { display: none; flex-shrink: 0; }
+    .wordbank-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.9px; color: var(--text-soft); margin-bottom: 7px;
+    }
+    .wordbank {
+      display: flex; flex-wrap: wrap; gap: 7px;
+    }
+    .wordbank-chip {
+      padding: 7px 13px; background: var(--sage-pale);
+      border: 1.5px solid var(--sage-light); border-radius: 50px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+    }
+    .wordbank-chip:active { background: var(--sage-mid); color: white; transform: scale(0.95); }
+
+    /* Map size controls */
+    .map-size-ctrl {
+      position: absolute; bottom: 12px; left: 12px;
+      display: flex; gap: 5px; z-index: 20;
+    }
+    .map-size-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.92); border: 1px solid var(--border);
+      font-size: 20px; font-weight: 700; cursor: pointer; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-soft); transition: all 0.15s;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .map-size-btn:active { background: var(--card); transform: scale(0.88); }
+
+    /* Edit-people button in Phase 3 topbar */
+    .edit-people-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; padding: 5px 9px; line-height: 1;
+      color: var(--text-soft); border-radius: 8px;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .edit-people-btn:active { background: var(--card); }
+
+    /* ============================================================
+       LANDING PAGE
+    ============================================================ */
+    #s-landing {
+      background: linear-gradient(165deg, #e6f0e5 0%, var(--white) 60%);
+      align-items: center; justify-content: center; text-align: center;
+      gap: 0; padding: 32px 24px 40px;
+    }
+    .landing-logo { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 10px; }
+    .landing-logo-icon { font-size: 32px; }
+    .landing-logo-text { font-size: 32px; font-weight: 800; color: var(--teal); letter-spacing: -0.5px; }
+    .landing-sub { font-size: 14px; color: var(--text-soft); line-height: 1.55; max-width: 280px; margin: 0 auto 36px; }
+    .landing-cards { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 360px; }
+    .landing-card {
+      background: white; border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 22px 20px; cursor: pointer;
+      transition: all 0.2s; text-align: left;
+      box-shadow: 0 3px 16px rgba(0,0,0,0.06);
+    }
+    .landing-card:active { transform: scale(0.98); }
+    .landing-card.classroom:active,
+    .landing-card.classroom:hover { border-color: var(--sage); box-shadow: 0 4px 20px rgba(143,174,139,0.25); }
+    .landing-card.professional:active,
+    .landing-card.professional:hover { border-color: var(--teal); box-shadow: 0 4px 20px rgba(78,154,164,0.22); }
+    .landing-card-icon { font-size: 28px; margin-bottom: 10px; }
+    .landing-card-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 5px; }
+    .landing-card-desc { font-size: 13px; color: var(--text-soft); line-height: 1.5; }
+    .landing-card-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px; padding: 9px 18px; border-radius: 50px;
+      font-size: 13px; font-weight: 700; border: none; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .landing-card.classroom .landing-card-btn { background: var(--sage-pale); color: #4a7047; }
+    .landing-card.professional .landing-card-btn { background: var(--teal-light); color: var(--teal-dark); }
+
+    /* Mode badge on projects home */
+    .mode-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 50px;
+      letter-spacing: 0.4px;
+    }
+    .mode-badge.classroom   { background: var(--sage-pale); color: #4a7047; }
+    .mode-badge.professional { background: var(--teal-light); color: var(--teal-dark); }
   </style>
 </head>
 <body>
-  <div class="icon">🌿</div>
-  <h1>Untangle</h1>
-  <div class="sub">Conflict Mapping for classrooms and peacebuilders</div>
-  <a class="launch" href="app.html">Open App →</a>
-  <div class="launch-hint">Works in any browser — no install needed</div>
-  <div class="links">
-    <a href="support.html">Support</a>
-    <a href="privacy.html">Privacy Policy</a>
+
+<!-- ======================================================
+     SCREEN LANDING
+====================================================== -->
+<div id="s-landing" class="screen active">
+  <div class="topbar" style="position:absolute;top:0;left:0;right:0;background:transparent;box-shadow:none;">
+    <div style="flex:1"></div>
+    <button class="settings-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
   </div>
+  <div class="landing-logo">
+    <span class="landing-logo-icon">🌿</span>
+    <span class="landing-logo-text">Untangle</span>
+  </div>
+  <p class="landing-sub" data-i18n="landing_sub">A conflict mapping tool for peacebuilders, educators, and practitioners.</p>
+
+  <div class="landing-cards">
+    <div class="landing-card classroom" onclick="selectMode('classroom')">
+      <div class="landing-card-icon">🏫</div>
+      <div class="landing-card-title" data-i18n="landing_classroom">Classroom</div>
+      <div class="landing-card-desc" data-i18n="landing_classroom_desc">Simple stakeholder mapping for students and educators. Guided steps, clean visuals, easy to use in a lesson.</div>
+      <button class="landing-card-btn" data-i18n="landing_classroom_btn">Enter Classroom →</button>
+    </div>
+
+    <div class="landing-card professional" onclick="selectMode('professional')">
+      <div class="landing-card-icon">🌍</div>
+      <div class="landing-card-title" data-i18n="landing_professional">Professional</div>
+      <div class="landing-card-desc" data-i18n="landing_professional_desc">Full conflict analysis for practitioners and researchers. More detail, more freedom, deeper analysis tools.</div>
+      <button class="landing-card-btn" data-i18n="landing_professional_btn">Enter Professional →</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     SCREEN PROJECTS (Home)
+====================================================== -->
+<div id="s-projects" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('s-landing')" aria-label="Switch mode">‹</button>
+    <div class="logo-wrap">
+      <span class="logo-icon">🌿</span>
+      <span class="logo-text">Untangle</span>
+    </div>
+    <button class="settings-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+  </div>
+
+  <div class="projects-hero">
+    <div id="mode-badge-home"></div>
+  </div>
+
+  <button class="btn-new-map" onclick="newMap()">
+    <span>＋</span>
+    <span data-i18n="proj_new_map">New Map</span>
+  </button>
+
+  <div id="projects-list-heading" class="projects-list-heading" data-i18n="proj_your_maps">Your Maps</div>
+  <div id="projects-list"></div>
+</div>
+
+
+<!-- ======================================================
+     SCREEN 1 — WELCOME
+====================================================== -->
+<div id="s-welcome" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="showScreen('s-projects')" aria-label="Back">‹</button>
+    <div class="logo-wrap">
+      <span class="logo-icon">🌿</span>
+      <span class="logo-text">Untangle</span>
+    </div>
+    <button class="settings-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+  </div>
+
+  <div class="welcome-hero">
+  </div>
+
+  <div class="label" data-i18n="the_situation">The Situation</div>
+  <div class="sp-8"></div>
+  <input type="text" id="situation-input" data-i18n-ph="situation_placeholder"
+         placeholder="e.g. The Hunger Games, School Budget Dispute…"
+         autocomplete="off" autocorrect="off" spellcheck="false" />
+
+  <div class="sp-24"></div>
+
+  <div class="label" data-i18n="who_is_affected">Who is affected?</div>
+  <div class="sp-4"></div>
+  <div class="subtext" data-i18n="who_subtext">Add the characters or groups caught up in this conflict.</div>
+  <div class="sp-12"></div>
+
+  <div class="add-row">
+    <input type="text" id="stakeholder-input" data-i18n-ph="add_placeholder"
+           placeholder="Name a character or group…"
+           maxlength="42" autocomplete="off" autocorrect="off" spellcheck="false" />
+    <button class="icon-btn btn-primary" onclick="addStakeholder()" aria-label="Add">+</button>
+  </div>
+
+  <div class="bubbles-grid" id="bubbles-grid"></div>
+  <div class="min-hint" id="min-hint" style="display:none" data-i18n="add_two_hint">Add at least 2 people to continue ↑</div>
+
+  <div class="flex-1"></div>
+
+  <button class="btn btn-primary btn-full" id="btn-p1-next" onclick="goPhase2()" disabled>
+    <span data-i18n="next_wants">Next — What do they want? →</span>
+  </button>
+</div>
+
+
+<!-- ======================================================
+     SCREEN 2 — WANTS + MISUNDERSTOOD
+====================================================== -->
+<div id="s-wants" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="backPhase2()" aria-label="Back">‹</button>
+    <div class="phase-badge" data-i18n="phase2of3">Phase 2 of 3</div>
+    <div style="width:38px"></div>
+  </div>
+
+  <div class="progress-track" id="prog-track"></div>
+
+  <div class="wants-hero">
+    <div class="hero-bubble" id="wants-bubble">—</div>
+  </div>
+
+  <h2 id="wants-prompt">What does <span id="wants-name" style="color:var(--teal)">…</span> want?</h2>
+  <div class="sp-4"></div>
+  <div class="subtext" data-i18n="wants_subtext">Think beyond what they say out loud — what do they truly need?</div>
+  <div class="sp-12"></div>
+
+  <div class="frame-section" id="frames-wants">
+    <div class="frame-label" data-i18n="frame_label">Sentence frames</div>
+    <div class="frame-chips" id="frame-chips-wants"></div>
+  </div>
+  <div class="sp-4" id="sp-frames-wants" style="display:none"></div>
+
+  <textarea id="wants-textarea" data-i18n-ph="wants_placeholder" style="min-height:80px"
+            placeholder="Describe their goals, needs, or motivations…"></textarea>
+
+  <div class="sp-16"></div>
+
+  <div class="label" data-i18n="misunderstood_label">How might they feel misunderstood?</div>
+  <div class="sp-8"></div>
+
+  <div class="frame-section" id="frames-mis">
+    <div class="frame-chips" id="frame-chips-mis"></div>
+  </div>
+  <div class="sp-4" id="sp-frames-mis" style="display:none"></div>
+
+  <textarea id="misunderstood-textarea" data-i18n-ph="misunderstood_placeholder" style="min-height:72px"
+            placeholder="What might others be getting wrong about them?"></textarea>
+
+  <div id="evidence-section" style="display:none">
+    <div class="sp-16"></div>
+    <div class="label" data-i18n="evidence_label">What's your evidence? How do you know?</div>
+    <div class="sp-8"></div>
+    <textarea id="evidence-textarea" data-i18n-ph="evidence_placeholder" style="min-height:72px"
+              placeholder="List sources, observations, or experiences that support this…"></textarea>
+  </div>
+
+  <div class="wordbank-section" id="wordbank-section">
+    <div class="sp-14"></div>
+    <div class="wordbank-label" data-i18n="wordbank_label">Word bank — tap to add</div>
+    <div class="sp-6"></div>
+    <div class="wordbank" id="wordbank-chips"></div>
+  </div>
+
+  <div class="sp-16"></div>
+  <div class="insight-card">
+    <p data-i18n="insight_text">Consider: What pressures are they under? What do they value most? What are they afraid of losing?</p>
+  </div>
+  <div class="sp-20"></div>
+
+  <button class="btn btn-primary btn-full" id="btn-next-person" onclick="nextPerson()">
+    Next Character →
+  </button>
+  <div class="sp-24"></div>
+</div>
+
+
+<!-- ======================================================
+     SCREEN 3 — MAP
+====================================================== -->
+<div id="s-map" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="backPhase3()" aria-label="Back">‹</button>
+    <div class="phase-badge" data-i18n="phase3of3">Phase 3 of 3</div>
+    <button class="edit-people-btn" onclick="backToPhase1()" aria-label="Edit stakeholders" data-i18n="edit_people">✎ People</button>
+  </div>
+
+  <h2 data-i18n="map_title">Map the Relationships</h2>
+  <div class="sp-4"></div>
+  <div class="map-hint-bar" id="map-hint" data-i18n="tap_to_begin">Tap any character to begin connecting</div>
+  <div id="pro-palette-bar" style="display:none"></div>
+
+  <div class="map-container" id="map-container">
+    <div id="map-viewport">
+      <svg class="rel-svg" id="rel-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="map-size-ctrl">
+      <button class="map-size-btn" onclick="resizeBubbles(-1)" aria-label="Shrink bubbles">−</button>
+      <button class="map-size-btn" onclick="resizeBubbles(1)" aria-label="Grow bubbles">＋</button>
+    </div>
+    <div class="map-legend" id="map-legend">
+      <!-- rendered by renderMapLegend() -->
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-full" onclick="goFinal()">
+    <span data-i18n="finish_map">Finish — See My Map →</span>
+  </button>
+  <div class="sp-8"></div>
+</div>
+
+
+<!-- ======================================================
+     SCREEN FINAL
+====================================================== -->
+<div id="s-final" class="screen">
+
+  <div class="topbar">
+    <button class="back-btn" onclick="backFinal()" aria-label="Back">‹</button>
+    <div class="logo-wrap">
+      <span class="logo-icon">🌿</span>
+      <span class="logo-text">Untangle</span>
+    </div>
+    <button class="btn btn-ghost" onclick="startOver()"><span data-i18n="start_over">Start Over</span></button>
+  </div>
+
+  <div class="final-headline" data-i18n="relationship_map">Relationship Map</div>
+  <div class="sp-4"></div>
+  <div class="final-situation-name" id="final-title-text"></div>
+
+  <div class="final-map-wrap" id="final-map-wrap">
+    <svg class="rel-svg" id="final-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="final-legend" id="final-legend"></div>
+    <div class="final-watermark">🌿 Untangle</div>
+  </div>
+
+  <!-- Perspectives Section -->
+  <div class="perspectives-section">
+    <div class="perspectives-heading">👥 <span data-i18n="perspectives_title">Perspectives</span></div>
+    <div class="perspectives-grid" id="perspectives-grid"></div>
+  </div>
+
+  <!-- Debrief Section -->
+  <div class="debrief-section">
+    <div class="debrief-heading">✦ <span data-i18n="debrief_title">Debrief</span></div>
+    <div class="debrief-desc" data-i18n="debrief_desc">Use these questions to guide reflection and discussion.</div>
+
+    <div class="debrief-q">
+      <div class="debrief-q-label" data-i18n="debrief_q1">Who has the most connections in this web?</div>
+      <div class="debrief-starter" id="ds-1" data-i18n="debrief_s1">I notice that ___</div>
+      <textarea id="debrief-1" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+    </div>
+    <div class="debrief-q">
+      <div class="debrief-q-label" data-i18n="debrief_q2">Where might common ground exist between stakeholders?</div>
+      <div class="debrief-starter" id="ds-2" data-i18n="debrief_s2">I think ___ because ___</div>
+      <textarea id="debrief-2" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+    </div>
+    <div class="debrief-q">
+      <div class="debrief-q-label" data-i18n="debrief_q3">Who holds the most power? How does that shape the conflict?</div>
+      <div class="debrief-starter" id="ds-3" data-i18n="debrief_s3">I wonder if ___</div>
+      <textarea id="debrief-3" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+    </div>
+    <div class="debrief-q">
+      <div class="debrief-q-label" data-i18n="debrief_q4">What surprised you about this map?</div>
+      <div class="debrief-starter" id="ds-4" data-i18n="debrief_s4">I was surprised by ___</div>
+      <textarea id="debrief-4" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-full" onclick="downloadMap()">
+    <span data-i18n="save_image">Save Map as Image</span>
+  </button>
+  <div class="sp-10"></div>
+  <button class="btn btn-outline btn-full" onclick="startOver()">
+    <span data-i18n="analyze_another">Analyze Another Situation</span>
+  </button>
+  <div class="sp-8"></div>
+</div>
+
+
+<!-- ======================================================
+     COLOR MODAL
+====================================================== -->
+<div class="overlay" id="color-overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" data-i18n="relationship_between">What is the relationship between</div>
+    <div class="sheet-pair" id="modal-pair-text">…</div>
+
+    <!-- Step 1: Color choices (rendered dynamically by openColorModal) -->
+    <div class="color-choices" id="color-choices"></div>
+
+    <!-- Step 2: Power direction toggle (appears after color selected) -->
+    <div class="dir-section" id="dir-section" style="display:none">
+      <div class="dir-label" data-i18n="power_dir_label">Power direction (optional)</div>
+      <div class="dir-toggle">
+        <button class="dir-opt active" data-dir="none" id="dir-none" onclick="selectDir('none')" data-i18n="power_dir_none">Neither</button>
+        <button class="dir-opt" data-dir="a→b" id="dir-atob" onclick="selectDir('a→b')">…</button>
+        <button class="dir-opt" data-dir="b→a" id="dir-btoa" onclick="selectDir('b→a')">…</button>
+      </div>
+    </div>
+
+    <!-- Pro-only: line style options (pattern, shape, thickness) -->
+    <div class="line-style-section" id="line-style-section" style="display:none">
+      <div class="dir-label">Line Pattern</div>
+      <div class="line-style-row" id="pattern-row">
+        <button class="line-opt active" data-pattern="solid"  onclick="selectLinePattern('solid')">
+          <svg width="28" height="8"><line x1="2" y1="4" x2="26" y2="4" stroke="#6d6d65" stroke-width="2.5" stroke-linecap="round"/></svg>Solid
+        </button>
+        <button class="line-opt" data-pattern="dotted" onclick="selectLinePattern('dotted')">
+          <svg width="28" height="8"><line x1="2" y1="4" x2="26" y2="4" stroke="#6d6d65" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2,4"/></svg>Dotted
+        </button>
+        <button class="line-opt" data-pattern="dashed" onclick="selectLinePattern('dashed')">
+          <svg width="28" height="8"><line x1="2" y1="4" x2="26" y2="4" stroke="#6d6d65" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8,4"/></svg>Dashed
+        </button>
+      </div>
+      <div class="dir-label">Line Shape</div>
+      <div class="line-style-row" id="shape-row">
+        <button class="line-opt active" data-shape="straight" onclick="selectLineShape('straight')">
+          <svg width="28" height="14"><line x1="2" y1="7" x2="26" y2="7" stroke="#6d6d65" stroke-width="2.5" stroke-linecap="round"/></svg>Straight
+        </button>
+        <button class="line-opt" data-shape="wavy" onclick="selectLineShape('wavy')">
+          <svg width="28" height="14"><path d="M2,7 Q7,2 14,7 Q21,12 26,7" stroke="#6d6d65" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>Wavy
+        </button>
+        <button class="line-opt" data-shape="zigzag" onclick="selectLineShape('zigzag')">
+          <svg width="28" height="14"><polyline points="2,7 8,2 14,12 20,2 26,7" stroke="#6d6d65" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Zigzag
+        </button>
+      </div>
+      <div class="dir-label">Thickness</div>
+      <div class="thick-row" id="thickness-row">
+        <button class="thick-opt active" data-thickness="1" onclick="selectThickness(1)" title="Thin">
+          <div class="thick-swatch" style="width:20px;height:1.5px"></div>
+        </button>
+        <button class="thick-opt" data-thickness="2" onclick="selectThickness(2)" title="Normal">
+          <div class="thick-swatch" style="width:20px;height:3px"></div>
+        </button>
+        <button class="thick-opt" data-thickness="3" onclick="selectThickness(3)" title="Thick">
+          <div class="thick-swatch" style="width:20px;height:5px"></div>
+        </button>
+        <button class="thick-opt" data-thickness="4" onclick="selectThickness(4)" title="Heavy">
+          <div class="thick-swatch" style="width:20px;height:8px"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Confirm button (appears after color selected) -->
+    <div id="modal-confirm-wrap" style="display:none">
+      <div class="sp-14"></div>
+      <button class="btn btn-primary btn-full" onclick="confirmRelationship()" data-i18n="modal_save">Save →</button>
+    </div>
+
+    <button class="cancel-btn" onclick="cancelColor()" data-i18n="cancel">Cancel</button>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     SETTINGS OVERLAY
+====================================================== -->
+<div class="overlay settings-sheet" id="settings-overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" data-i18n="settings_title">Settings</div>
+    <div class="sp-16"></div>
+    <div class="settings-section-title" data-i18n="language_label">Language</div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" data-lang="en" onclick="setLang('en')">English</button>
+      <button class="lang-btn" data-lang="es" onclick="setLang('es')">Español</button>
+      <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">Português</button>
+      <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">Français</button>
+      <button class="lang-btn" data-lang="de" onclick="setLang('de')">Deutsch</button>
+      <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">العربية</button>
+      <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+      <button class="lang-btn" data-lang="sw" onclick="setLang('sw')">Kiswahili</button>
+      <button class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+    </div>
+    <div class="sp-20"></div>
+    <div class="settings-section-title" data-i18n="supports_section_label">Language Supports</div>
+    <div class="supports-row">
+      <span class="supports-row-label" data-i18n="supports_label">Sentence frames &amp; word bank</span>
+      <button class="toggle-switch" id="supports-toggle" onclick="setSupports(!S.supports)" aria-label="Toggle language supports">
+        <div class="toggle-knob"></div>
+      </button>
+    </div>
+    <div class="sp-8"></div>
+    <div class="subtext" data-i18n="supports_desc" style="font-size:12px">Scaffolding for L2 learners — sentence frames, word bank, and debrief starters.</div>
+    <div class="sp-20"></div>
+    <button class="btn btn-primary btn-full" onclick="closeSettings()" data-i18n="done">Done</button>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     LEGEND EDITOR OVERLAY (Pro only)
+====================================================== -->
+<div class="overlay" id="legend-overlay">
+  <div class="sheet" style="max-height:80vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" data-i18n="legend_editor_title">Edit Legend</div>
+    <div class="sp-8"></div>
+    <div id="legend-types-list"></div>
+    <button class="legend-add-btn" onclick="addCustomLegendType()" data-i18n="legend_add_custom">＋ Add Custom Type</button>
+    <div class="sp-16"></div>
+    <button class="btn btn-primary btn-full" onclick="closeLegendEditor()" data-i18n="done">Done</button>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     JAVASCRIPT
+====================================================== -->
+<script>
+
+// ==================== TRANSLATIONS ====================
+
+const STRINGS = {
+  en: {
+
+    the_situation:        'The Situation',
+    situation_placeholder:'e.g. The Hunger Games, School Budget Dispute…',
+    who_is_affected:      'Who is affected?',
+    who_subtext:          'Add the characters or groups caught up in this conflict.',
+    add_placeholder:      'Name a character or group…',
+    next_wants:           'Next — What do they want? →',
+    add_two_hint:         'Add at least 2 people to continue ↑',
+
+    phase2of3:            'Phase 2 of 3',
+    wants_subtext:        'Think beyond what they say out loud — what do they truly need?',
+    wants_placeholder:    'Describe their goals, needs, or motivations…',
+    misunderstood_label:  'How might they feel misunderstood?',
+    misunderstood_placeholder: 'What might others be getting wrong about them?',
+    insight_text:         'Consider: What pressures are they under? What do they value most? What are they afraid of losing?',
+    next_character:       'Next Character →',
+    finish_mapping:       'Finish — Map Relationships →',
+
+    phase3of3:            'Phase 3 of 3',
+    map_title:            'Map the Relationships',
+    tap_to_begin:         'Tap any character to begin connecting',
+    selected_hint:        '{name} selected — now tap another character',
+    finish_map:           'Finish — See My Map →',
+
+    relationship_between: 'What is the relationship between',
+    cooperation:          'Cooperation',
+    cooperation_desc:     'Working together well toward shared goals',
+    tension:              'Tension',
+    tension_desc:         'Complicated — not quite trusting each other',
+    conflict_word:        'Conflict',
+    conflict_desc:        'Opposing goals or direct friction',
+    power_dir_label:      'Power direction (optional)',
+    power_dir_none:       'Neither',
+    modal_save:           'Save →',
+    cancel:               'Cancel',
+
+    legend_cooperation:   'Cooperation',
+    legend_tension:       'Tension',
+    legend_conflict:      'Conflict',
+    legend_power:         'Power direction',
+
+    relationship_map:     'Relationship Map',
+    start_over:           'Start Over',
+    save_image:           'Save Map as Image',
+    analyze_another:      'Analyze Another Situation',
+
+    debrief_title:        'Debrief',
+    debrief_desc:         'Use these questions to guide reflection and discussion.',
+    debrief_q1:           'Who has the most connections in this web?',
+    debrief_q2:           'Where might common ground exist between stakeholders?',
+    debrief_q3:           'Who holds the most power? How does that shape the conflict?',
+    debrief_q4:           'What surprised you about this map?',
+    debrief_placeholder:  'Write your thoughts here…',
+
+    settings_title:       'Settings',
+    language_label:       'Language',
+    done:                 'Done',
+    supports_section_label: 'Language Supports',
+    supports_label:       'Sentence frames & word bank',
+    supports_desc:        'Scaffolding for L2 learners — sentence frames, word bank, and debrief starters.',
+
+    frame_label:          'Sentence frames',
+    wordbank_label:       'Word bank — tap to add',
+    debrief_s1:           'I notice that ___',
+    debrief_s2:           'I think ___ because ___',
+    debrief_s3:           'I wonder if ___',
+    debrief_s4:           'I was surprised by ___',
+
+    perspectives_title:   'Perspectives',
+    perspectives_wants:     'What they want',
+    perspectives_mis:       'Feels misunderstood',
+    perspectives_evidence:  'Evidence / how we know',
+    perspectives_empty:     '(not written)',
+
+    evidence_label:       'What\'s your evidence? How do you know?',
+    evidence_placeholder: 'List sources, observations, or experiences that support this…',
+
+    proj_new_map:         'New Map',
+    proj_your_maps:       'Your Maps',
+    proj_empty_text:      'Your maps will appear here.\nTap New Map to get started.',
+    proj_phase_start:     'Setup',
+    proj_phase_wants:     'Perspectives',
+    proj_phase_map:       'Mapping',
+    proj_phase_final:     'Complete',
+
+    landing_sub:              'A conflict mapping tool for peacebuilders, educators, and practitioners.',
+    landing_classroom:        'Classroom',
+    landing_classroom_desc:   'Simple stakeholder mapping for students and educators. Guided steps, clean visuals, easy to use in a lesson.',
+    landing_classroom_btn:    'Enter Classroom →',
+    landing_professional:     'Professional',
+    landing_professional_desc:'Full conflict analysis for practitioners and researchers. More detail, more freedom, deeper analysis tools.',
+    landing_professional_btn: 'Enter Professional →',
+
+    wants_prompt:         'What does {name} want?',
+    edit_people:          '✎ People',
+    legend_edit:          '✏ Edit Legend',
+    legend_editor_title:  'Edit Legend',
+    legend_add_custom:    '＋ Add Custom Type',
+    resize_hint:          '+/− to resize',
+    dup_name_hint:        'Already on the list',
+    max_people_hint:      'Maximum reached',
+    confirm_delete:       'Sure?',
+  },
+
+  es: {
+
+    the_situation:        'La situación',
+    situation_placeholder:'p. ej. Los Juegos del Hambre, Debate sobre el presupuesto escolar…',
+    who_is_affected:      '¿Quién se ve afectado/a?',
+    who_subtext:          'Agrega los personajes o grupos involucrados en este conflicto.',
+    add_placeholder:      'Nombra un personaje o grupo…',
+    next_wants:           'Siguiente — ¿Qué quieren? →',
+    add_two_hint:         'Agrega al menos 2 personas para continuar ↑',
+
+    phase2of3:            'Fase 2 de 3',
+    wants_subtext:        'Piensa más allá de lo que dicen — ¿qué necesitan de verdad?',
+    wants_placeholder:    'Describe sus metas, necesidades o motivaciones…',
+    misunderstood_label:  '¿De qué manera podría sentirse incomprendido/a?',
+    misunderstood_placeholder: '¿Qué podrían estar entendiendo mal los demás sobre esta persona?',
+    insight_text:         'Considera: ¿Qué presiones tiene? ¿Qué valora más? ¿Qué tiene miedo de perder?',
+    next_character:       'Siguiente personaje →',
+    finish_mapping:       'Terminar — Mapear relaciones →',
+
+    phase3of3:            'Fase 3 de 3',
+    map_title:            'Mapea las relaciones',
+    tap_to_begin:         'Toca cualquier personaje para comenzar a conectar',
+    selected_hint:        '{name} seleccionado/a — ahora toca otro personaje',
+    finish_map:           'Terminar — Ver mi mapa →',
+
+    relationship_between: '¿Cuál es la relación entre',
+    cooperation:          'Cooperación',
+    cooperation_desc:     'Trabajando juntos hacia metas comunes',
+    tension:              'Tensión',
+    tension_desc:         'Complicado — sin mucha confianza entre sí',
+    conflict_word:        'Conflicto',
+    conflict_desc:        'Metas opuestas o fricción directa',
+    power_dir_label:      'Dirección de poder (opcional)',
+    power_dir_none:       'Ninguno',
+    modal_save:           'Guardar →',
+    cancel:               'Cancelar',
+
+    legend_cooperation:   'Cooperación',
+    legend_tension:       'Tensión',
+    legend_conflict:      'Conflicto',
+    legend_power:         'Dirección de poder',
+
+    relationship_map:     'Mapa de relaciones',
+    start_over:           'Comenzar de nuevo',
+    save_image:           'Guardar mapa como imagen',
+    analyze_another:      'Analizar otra situación',
+
+    debrief_title:        'Reflexión',
+    debrief_desc:         'Usa estas preguntas para guiar la reflexión y el diálogo.',
+    debrief_q1:           '¿Quién tiene más conexiones en esta red?',
+    debrief_q2:           '¿Dónde podría existir un terreno común entre los actores?',
+    debrief_q3:           '¿Quién tiene más poder? ¿Cómo influye eso en el conflicto?',
+    debrief_q4:           '¿Qué te sorprendió de este mapa?',
+    debrief_placeholder:  'Escribe tus ideas aquí…',
+
+    settings_title:       'Ajustes',
+    language_label:       'Idioma',
+    done:                 'Listo',
+    supports_section_label: 'Apoyos lingüísticos',
+    supports_label:       'Marcos de oraciones y banco de palabras',
+    supports_desc:        'Andamiaje para aprendices de L2 — marcos de oraciones, banco de palabras y frases para la reflexión.',
+
+    frame_label:          'Marcos de oraciones',
+    wordbank_label:       'Banco de palabras — toca para agregar',
+    debrief_s1:           'Noto que ___',
+    debrief_s2:           'Creo que ___ porque ___',
+    debrief_s3:           'Me pregunto si ___',
+    debrief_s4:           'Me sorprendió ___',
+
+    perspectives_title:   'Perspectivas',
+    perspectives_wants:   'Qué quieren',
+    perspectives_mis:     'Se sienten incomprendidos/as',
+    perspectives_empty:   '(no escrito)',
+
+    proj_new_map:         'Nuevo mapa',
+    proj_your_maps:       'Tus mapas',
+    proj_empty_text:      'Tus mapas aparecerán aquí.\nToca Nuevo mapa para comenzar.',
+    proj_phase_start:     'Inicio',
+    proj_phase_wants:     'Perspectivas',
+    proj_phase_map:       'Mapeo',
+    proj_phase_final:     'Completo',
+
+    landing_sub:              'Una herramienta de mapeo de conflictos para constructores de paz, educadores y profesionales.',
+    landing_classroom:        'Aula',
+    landing_classroom_desc:   'Mapeo de partes interesadas para estudiantes y educadores. Pasos guiados, visuales limpios, fácil de usar en clase.',
+    landing_classroom_btn:    'Entrar al Aula →',
+    landing_professional:     'Profesional',
+    landing_professional_desc:'Análisis completo de conflictos para profesionales e investigadores. Más detalle, más libertad, herramientas de análisis más profundas.',
+    landing_professional_btn: 'Entrar como Profesional →',
+
+    wants_prompt:         '¿Qué quiere {name}?',
+    evidence_label:       '¿Cuál es tu evidencia? ¿Cómo lo sabes?',
+    evidence_placeholder: 'Enumera fuentes, observaciones o experiencias que lo respalden…',
+    perspectives_evidence:'Evidencia / cómo lo sabemos',
+    edit_people:          '✎ Personas',
+    legend_edit:          '✏ Editar leyenda',
+    legend_editor_title:  'Editar leyenda',
+    legend_add_custom:    '＋ Agregar tipo personalizado',
+    resize_hint:          '+/− para cambiar tamaño',
+    dup_name_hint:        'Ya está en la lista',
+    max_people_hint:      'Límite alcanzado',
+    confirm_delete:       '¿Seguro?',
+  },
+
+  pt: {
+    the_situation:        'A situação',
+    situation_placeholder:'ex: Os Jogos Vorazes, Disputa de orçamento escolar…',
+    who_is_affected:      'Quem é afetado?',
+    who_subtext:          'Adicione os personagens ou grupos envolvidos neste conflito.',
+    add_placeholder:      'Nomeie um personagem ou grupo…',
+    next_wants:           'Próximo — O que eles querem? →',
+    add_two_hint:         'Adicione pelo menos 2 pessoas para continuar ↑',
+    phase2of3:            'Fase 2 de 3',
+    wants_subtext:        'Pense além do que dizem — o que realmente precisam?',
+    wants_placeholder:    'Descreva seus objetivos, necessidades ou motivações…',
+    misunderstood_label:  'Como podem se sentir incompreendidos?',
+    misunderstood_placeholder: 'O que os outros podem estar entendendo errado sobre eles?',
+    insight_text:         'Considere: Que pressões enfrentam? O que mais valorizam? O que têm medo de perder?',
+    next_character:       'Próximo personagem →',
+    finish_mapping:       'Concluir — Mapear relacionamentos →',
+    phase3of3:            'Fase 3 de 3',
+    map_title:            'Mapeie os relacionamentos',
+    tap_to_begin:         'Toque em qualquer personagem para começar a conectar',
+    selected_hint:        '{name} selecionado — agora toque em outro personagem',
+    finish_map:           'Concluir — Ver meu mapa →',
+    relationship_between: 'Qual é o relacionamento entre',
+    cooperation:          'Cooperação',
+    cooperation_desc:     'Trabalhando juntos em direção a objetivos comuns',
+    tension:              'Tensão',
+    tension_desc:         'Complicado — sem muita confiança entre si',
+    conflict_word:        'Conflito',
+    conflict_desc:        'Objetivos opostos ou atrito direto',
+    power_dir_label:      'Direção do poder (opcional)',
+    power_dir_none:       'Nenhum',
+    modal_save:           'Salvar →',
+    cancel:               'Cancelar',
+    legend_cooperation:   'Cooperação',
+    legend_tension:       'Tensão',
+    legend_conflict:      'Conflito',
+    legend_power:         'Direção do poder',
+    relationship_map:     'Mapa de relacionamentos',
+    start_over:           'Recomeçar',
+    save_image:           'Salvar mapa como imagem',
+    analyze_another:      'Analisar outra situação',
+    debrief_title:        'Reflexão',
+    debrief_desc:         'Use estas perguntas para orientar a reflexão e a discussão.',
+    debrief_q1:           'Quem tem mais conexões nesta rede?',
+    debrief_q2:           'Onde pode existir um terreno comum entre os interessados?',
+    debrief_q3:           'Quem detém mais poder? Como isso molda o conflito?',
+    debrief_q4:           'O que te surpreendeu neste mapa?',
+    debrief_placeholder:  'Escreva seus pensamentos aqui…',
+    settings_title:       'Configurações',
+    language_label:       'Idioma',
+    done:                 'Concluído',
+    supports_section_label: 'Suportes linguísticos',
+    supports_label:       'Estruturas de frases e banco de palavras',
+    supports_desc:        'Andaimes para aprendizes — estruturas de frases, banco de palavras e iniciadores de reflexão.',
+    frame_label:          'Estruturas de frases',
+    wordbank_label:       'Banco de palavras — toque para adicionar',
+    debrief_s1:           'Percebo que ___',
+    debrief_s2:           'Acho que ___ porque ___',
+    debrief_s3:           'Eu me pergunto se ___',
+    debrief_s4:           'Fiquei surpreso/a com ___',
+    perspectives_title:   'Perspectivas',
+    perspectives_wants:   'O que eles querem',
+    perspectives_mis:     'Sentem-se incompreendidos',
+    perspectives_empty:   '(não escrito)',
+    proj_new_map:         'Novo mapa',
+    proj_your_maps:       'Seus mapas',
+    proj_empty_text:      'Seus mapas aparecerão aqui.\nToque em Novo mapa para começar.',
+    proj_phase_start:     'Início',
+    proj_phase_wants:     'Perspectivas',
+    proj_phase_map:       'Mapeamento',
+    proj_phase_final:     'Completo',
+
+    landing_sub:              'Uma ferramenta de mapeamento de conflitos para construtores de paz, educadores e profissionais.',
+    landing_classroom:        'Sala de Aula',
+    landing_classroom_desc:   'Mapeamento simples de partes interessadas para estudantes e educadores. Passos guiados, visuais limpos, fácil de usar em aula.',
+    landing_classroom_btn:    'Entrar na Sala de Aula →',
+    landing_professional:     'Profissional',
+    landing_professional_desc:'Análise completa de conflitos para profissionais e pesquisadores. Mais detalhes, mais liberdade, ferramentas de análise mais profundas.',
+    landing_professional_btn: 'Entrar como Profissional →',
+
+    wants_prompt:         'O que {name} quer?',
+    evidence_label:       'Qual é a sua evidência? Como você sabe?',
+    evidence_placeholder: 'Liste fontes, observações ou experiências que apoiem isso…',
+    perspectives_evidence:'Evidência / como sabemos',
+    edit_people:          '✎ Pessoas',
+    legend_edit:          '✏ Editar legenda',
+    legend_editor_title:  'Editar legenda',
+    legend_add_custom:    '＋ Adicionar tipo personalizado',
+    resize_hint:          '+/− para redimensionar',
+    dup_name_hint:        'Já está na lista',
+    max_people_hint:      'Limite atingido',
+    confirm_delete:       'Tem certeza?',
+  },
+
+  fr: {
+    the_situation:        'La situation',
+    situation_placeholder:'ex : Hunger Games, Dispute sur le budget scolaire…',
+    who_is_affected:      'Qui est concerné ?',
+    who_subtext:          'Ajoutez les personnages ou groupes impliqués dans ce conflit.',
+    add_placeholder:      'Nommez un personnage ou un groupe…',
+    next_wants:           'Suivant — Que veulent-ils ? →',
+    add_two_hint:         'Ajoutez au moins 2 personnes pour continuer ↑',
+    phase2of3:            'Phase 2 sur 3',
+    wants_subtext:        'Pensez au-delà de ce qu\'ils disent — de quoi ont-ils vraiment besoin ?',
+    wants_placeholder:    'Décrivez leurs objectifs, besoins ou motivations…',
+    misunderstood_label:  'Comment pourraient-ils se sentir incompris ?',
+    misunderstood_placeholder: 'Que pourrait-on mal comprendre à leur sujet ?',
+    insight_text:         'Réfléchissez : Quelles pressions subissent-ils ? Qu\'est-ce qu\'ils valorisent ? Qu\'ont-ils peur de perdre ?',
+    next_character:       'Personnage suivant →',
+    finish_mapping:       'Terminer — Cartographier les relations →',
+    phase3of3:            'Phase 3 sur 3',
+    map_title:            'Cartographier les relations',
+    tap_to_begin:         'Appuyez sur un personnage pour commencer à connecter',
+    selected_hint:        '{name} sélectionné — appuyez maintenant sur un autre personnage',
+    finish_map:           'Terminer — Voir ma carte →',
+    relationship_between: 'Quelle est la relation entre',
+    cooperation:          'Coopération',
+    cooperation_desc:     'Travaillant ensemble vers des objectifs communs',
+    tension:              'Tension',
+    tension_desc:         'Compliqué — pas vraiment en confiance',
+    conflict_word:        'Conflit',
+    conflict_desc:        'Objectifs opposés ou friction directe',
+    power_dir_label:      'Direction du pouvoir (optionnel)',
+    power_dir_none:       'Aucun',
+    modal_save:           'Enregistrer →',
+    cancel:               'Annuler',
+    legend_cooperation:   'Coopération',
+    legend_tension:       'Tension',
+    legend_conflict:      'Conflit',
+    legend_power:         'Direction du pouvoir',
+    relationship_map:     'Carte des relations',
+    start_over:           'Recommencer',
+    save_image:           'Enregistrer la carte en image',
+    analyze_another:      'Analyser une autre situation',
+    debrief_title:        'Débriefer',
+    debrief_desc:         'Utilisez ces questions pour guider la réflexion et la discussion.',
+    debrief_q1:           'Qui a le plus de connexions dans ce réseau ?',
+    debrief_q2:           'Où un terrain commun pourrait-il exister entre les parties ?',
+    debrief_q3:           'Qui détient le plus de pouvoir ? Comment cela façonne-t-il le conflit ?',
+    debrief_q4:           'Qu\'est-ce qui vous a surpris dans cette carte ?',
+    debrief_placeholder:  'Écrivez vos pensées ici…',
+    settings_title:       'Paramètres',
+    language_label:       'Langue',
+    done:                 'Terminé',
+    supports_section_label: 'Soutiens linguistiques',
+    supports_label:       'Structures de phrases & vocabulaire',
+    supports_desc:        'Aide pour les apprenants — structures de phrases, vocabulaire et amorces de réflexion.',
+    frame_label:          'Structures de phrases',
+    wordbank_label:       'Vocabulaire — appuyez pour ajouter',
+    debrief_s1:           'Je remarque que ___',
+    debrief_s2:           'Je pense ___ parce que ___',
+    debrief_s3:           'Je me demande si ___',
+    debrief_s4:           'J\'ai été surpris(e) par ___',
+    perspectives_title:   'Perspectives',
+    perspectives_wants:   'Ce qu\'ils veulent',
+    perspectives_mis:     'Se sentent incompris',
+    perspectives_empty:   '(non écrit)',
+    proj_new_map:         'Nouvelle carte',
+    proj_your_maps:       'Vos cartes',
+    proj_empty_text:      'Vos cartes apparaîtront ici.\nAppuyez sur Nouvelle carte pour commencer.',
+    proj_phase_start:     'Démarrage',
+    proj_phase_wants:     'Perspectives',
+    proj_phase_map:       'Cartographie',
+    proj_phase_final:     'Terminé',
+
+    landing_sub:              'Un outil de cartographie des conflits pour les artisans de paix, les éducateurs et les praticiens.',
+    landing_classroom:        'Classe',
+    landing_classroom_desc:   'Cartographie simple des parties prenantes pour les étudiants et les éducateurs. Étapes guidées, visuels clairs, facile à utiliser en cours.',
+    landing_classroom_btn:    'Entrer dans la Classe →',
+    landing_professional:     'Professionnel',
+    landing_professional_desc:'Analyse complète des conflits pour les praticiens et les chercheurs. Plus de détails, plus de liberté, des outils d\'analyse plus approfondis.',
+    landing_professional_btn: 'Entrer en mode Professionnel →',
+
+    wants_prompt:         'Que veut {name} ?',
+    evidence_label:       'Quelles sont vos preuves ? Comment le savez-vous ?',
+    evidence_placeholder: 'Indiquez les sources, observations ou expériences qui appuient cela…',
+    perspectives_evidence:'Preuves / comment nous le savons',
+    edit_people:          '✎ Personnes',
+    legend_edit:          '✏ Modifier la légende',
+    legend_editor_title:  'Modifier la légende',
+    legend_add_custom:    '＋ Ajouter un type personnalisé',
+    resize_hint:          '+/− pour redimensionner',
+    dup_name_hint:        'Déjà dans la liste',
+    max_people_hint:      'Limite atteinte',
+    confirm_delete:       'Sûr ?',
+  },
+
+  de: {
+    the_situation:        'Die Situation',
+    situation_placeholder:'z. B. Die Tribute von Panem, Schulbudget-Streit…',
+    who_is_affected:      'Wer ist betroffen?',
+    who_subtext:          'Füge die Charaktere oder Gruppen hinzu, die in diesen Konflikt verwickelt sind.',
+    add_placeholder:      'Nenne einen Charakter oder eine Gruppe…',
+    next_wants:           'Weiter — Was wollen sie? →',
+    add_two_hint:         'Füge mindestens 2 Personen hinzu, um fortzufahren ↑',
+    phase2of3:            'Phase 2 von 3',
+    wants_subtext:        'Denke über das Gesagte hinaus — was brauchen sie wirklich?',
+    wants_placeholder:    'Beschreibe ihre Ziele, Bedürfnisse oder Motivationen…',
+    misunderstood_label:  'Wie könnten sie sich missverstanden fühlen?',
+    misunderstood_placeholder: 'Was könnten andere über sie falsch verstehen?',
+    insight_text:         'Überlege: Unter welchem Druck stehen sie? Was schätzen sie am meisten? Was haben sie Angst zu verlieren?',
+    next_character:       'Nächster Charakter →',
+    finish_mapping:       'Fertigstellen — Beziehungen kartieren →',
+    phase3of3:            'Phase 3 von 3',
+    map_title:            'Beziehungen kartieren',
+    tap_to_begin:         'Tippe auf einen Charakter, um zu verbinden',
+    selected_hint:        '{name} ausgewählt — tippe jetzt auf einen anderen Charakter',
+    finish_map:           'Fertigstellen — Meine Karte ansehen →',
+    relationship_between: 'Was ist die Beziehung zwischen',
+    cooperation:          'Kooperation',
+    cooperation_desc:     'Arbeiten gemeinsam auf gemeinsame Ziele hin',
+    tension:              'Spannung',
+    tension_desc:         'Kompliziert — nicht ganz vertrauend',
+    conflict_word:        'Konflikt',
+    conflict_desc:        'Gegensätzliche Ziele oder direkte Reibung',
+    power_dir_label:      'Machtrichtung (optional)',
+    power_dir_none:       'Keiner',
+    modal_save:           'Speichern →',
+    cancel:               'Abbrechen',
+    legend_cooperation:   'Kooperation',
+    legend_tension:       'Spannung',
+    legend_conflict:      'Konflikt',
+    legend_power:         'Machtrichtung',
+    relationship_map:     'Beziehungskarte',
+    start_over:           'Neu beginnen',
+    save_image:           'Karte als Bild speichern',
+    analyze_another:      'Eine andere Situation analysieren',
+    debrief_title:        'Reflexion',
+    debrief_desc:         'Nutze diese Fragen, um Reflexion und Diskussion zu leiten.',
+    debrief_q1:           'Wer hat die meisten Verbindungen in diesem Netz?',
+    debrief_q2:           'Wo könnte es Gemeinsamkeiten zwischen den Beteiligten geben?',
+    debrief_q3:           'Wer hat die meiste Macht? Wie prägt das den Konflikt?',
+    debrief_q4:           'Was hat dich an dieser Karte überrascht?',
+    debrief_placeholder:  'Schreibe hier deine Gedanken…',
+    settings_title:       'Einstellungen',
+    language_label:       'Sprache',
+    done:                 'Fertig',
+    supports_section_label: 'Sprachliche Unterstützung',
+    supports_label:       'Satzrahmen & Wortschatz',
+    supports_desc:        'Hilfe für Sprachlernende — Satzrahmen, Wortschatz und Reflexionsstarter.',
+    frame_label:          'Satzrahmen',
+    wordbank_label:       'Wortschatz — tippen zum Hinzufügen',
+    debrief_s1:           'Ich bemerke, dass ___',
+    debrief_s2:           'Ich denke ___, weil ___',
+    debrief_s3:           'Ich frage mich, ob ___',
+    debrief_s4:           'Ich war überrascht von ___',
+    perspectives_title:   'Perspektiven',
+    perspectives_wants:   'Was sie wollen',
+    perspectives_mis:     'Fühlen sich missverstanden',
+    perspectives_empty:   '(nicht geschrieben)',
+    proj_new_map:         'Neue Karte',
+    proj_your_maps:       'Deine Karten',
+    proj_empty_text:      'Deine Karten erscheinen hier.\nTippe auf Neue Karte, um zu beginnen.',
+    proj_phase_start:     'Start',
+    proj_phase_wants:     'Perspektiven',
+    proj_phase_map:       'Kartierung',
+    proj_phase_final:     'Abgeschlossen',
+
+    landing_sub:              'Ein Werkzeug zur Konfliktkartierung für Friedensstifter, Pädagogen und Fachleute.',
+    landing_classroom:        'Unterricht',
+    landing_classroom_desc:   'Einfache Stakeholder-Kartierung für Schüler und Lehrer. Geführte Schritte, klare Visualisierungen, einfach im Unterricht einsetzbar.',
+    landing_classroom_btn:    'Zum Unterricht →',
+    landing_professional:     'Professionell',
+    landing_professional_desc:'Vollständige Konfliktanalyse für Praktiker und Forscher. Mehr Detail, mehr Freiheit, tiefere Analysewerkzeuge.',
+    landing_professional_btn: 'Professionell einsteigen →',
+
+    wants_prompt:         'Was will {name}?',
+    evidence_label:       'Was sind deine Belege? Woher weißt du das?',
+    evidence_placeholder: 'Nenne Quellen, Beobachtungen oder Erfahrungen, die das stützen…',
+    perspectives_evidence:'Belege / woher wir es wissen',
+    edit_people:          '✎ Personen',
+    legend_edit:          '✏ Legende bearbeiten',
+    legend_editor_title:  'Legende bearbeiten',
+    legend_add_custom:    '＋ Eigenen Typ hinzufügen',
+    resize_hint:          '+/− zum Skalieren',
+    dup_name_hint:        'Bereits auf der Liste',
+    max_people_hint:      'Maximum erreicht',
+    confirm_delete:       'Sicher?',
+  },
+
+  ar: {
+    the_situation:        'الموقف',
+    situation_placeholder:'مثال: ألعاب الجوع، نزاع على ميزانية المدرسة…',
+    who_is_affected:      'من المتأثرون؟',
+    who_subtext:          'أضف الشخصيات أو المجموعات المنخرطة في هذا النزاع.',
+    add_placeholder:      'سمِّ شخصية أو مجموعة…',
+    next_wants:           'التالي — ماذا يريدون؟ ←',
+    add_two_hint:         'أضف شخصين على الأقل للمتابعة ↑',
+    phase2of3:            'المرحلة 2 من 3',
+    wants_subtext:        'فكّر أبعد مما يقولونه — ماذا يحتاجون حقًا؟',
+    wants_placeholder:    'صف أهدافهم واحتياجاتهم أو دوافعهم…',
+    misunderstood_label:  'كيف قد يشعرون بسوء الفهم؟',
+    misunderstood_placeholder: 'ما الذي قد يسيء الآخرون فهمه بشأنهم؟',
+    insight_text:         'تأمل: ما الضغوط التي يواجهونها؟ ما الذي يقدّرونه أكثر؟ ما الذي يخافون من خسارته؟',
+    next_character:       'الشخصية التالية ←',
+    finish_mapping:       'إنهاء — رسم خريطة العلاقات ←',
+    phase3of3:            'المرحلة 3 من 3',
+    map_title:            'رسم خريطة العلاقات',
+    tap_to_begin:         'انقر على أي شخصية للبدء بالربط',
+    selected_hint:        'تم تحديد {name} — انقر الآن على شخصية أخرى',
+    finish_map:           'إنهاء — عرض خريطتي ←',
+    relationship_between: 'ما طبيعة العلاقة بين',
+    cooperation:          'تعاون',
+    cooperation_desc:     'يعملون معًا نحو أهداف مشتركة',
+    tension:              'توتر',
+    tension_desc:         'معقّد — لا يوجد ثقة كافية بينهما',
+    conflict_word:        'نزاع',
+    conflict_desc:        'أهداف متعارضة أو احتكاك مباشر',
+    power_dir_label:      'اتجاه القوة (اختياري)',
+    power_dir_none:       'لا شيء',
+    modal_save:           'حفظ ←',
+    cancel:               'إلغاء',
+    legend_cooperation:   'تعاون',
+    legend_tension:       'توتر',
+    legend_conflict:      'نزاع',
+    legend_power:         'اتجاه القوة',
+    relationship_map:     'خريطة العلاقات',
+    start_over:           'البدء من جديد',
+    save_image:           'حفظ الخريطة كصورة',
+    analyze_another:      'تحليل موقف آخر',
+    debrief_title:        'مراجعة',
+    debrief_desc:         'استخدم هذه الأسئلة لتوجيه التفكير والنقاش.',
+    debrief_q1:           'من يملك أكثر الروابط في هذه الشبكة؟',
+    debrief_q2:           'أين يمكن أن تتوفر أرضية مشتركة بين الأطراف؟',
+    debrief_q3:           'من يملك أكثر القوة؟ كيف يشكّل ذلك النزاع؟',
+    debrief_q4:           'ما الذي أدهشك في هذه الخريطة؟',
+    debrief_placeholder:  'اكتب أفكارك هنا…',
+    settings_title:       'الإعدادات',
+    language_label:       'اللغة',
+    done:                 'تم',
+    supports_section_label: 'دعم اللغة',
+    supports_label:       'أطر الجمل وبنك الكلمات',
+    supports_desc:        'دعم للمتعلمين — أطر الجمل وبنك الكلمات ومبادئ المراجعة.',
+    frame_label:          'أطر الجمل',
+    wordbank_label:       'بنك الكلمات — انقر للإضافة',
+    debrief_s1:           'ألاحظ أن ___',
+    debrief_s2:           'أعتقد ___ لأن ___',
+    debrief_s3:           'أتساءل ما إذا ___',
+    debrief_s4:           'فاجأني ___',
+    perspectives_title:   'وجهات النظر',
+    perspectives_wants:   'ما يريدونه',
+    perspectives_mis:     'يشعرون بسوء الفهم',
+    perspectives_empty:   '(لم يُكتب)',
+    proj_new_map:         'خريطة جديدة',
+    proj_your_maps:       'خرائطك',
+    proj_empty_text:      'ستظهر خرائطك هنا.\nانقر على خريطة جديدة للبدء.',
+    proj_phase_start:     'بداية',
+    proj_phase_wants:     'وجهات النظر',
+    proj_phase_map:       'رسم الخريطة',
+    proj_phase_final:     'مكتمل',
+
+    landing_sub:              'أداة لرسم خرائط النزاعات لبناة السلام والمعلمين والممارسين.',
+    landing_classroom:        'الفصل الدراسي',
+    landing_classroom_desc:   'رسم خرائط بسيطة للأطراف للطلاب والمعلمين. خطوات إرشادية، مرئيات واضحة، سهلة الاستخدام في الفصل.',
+    landing_classroom_btn:    'الدخول إلى الفصل ←',
+    landing_professional:     'المحترف',
+    landing_professional_desc:'تحليل كامل للنزاعات للممارسين والباحثين. مزيد من التفاصيل، مزيد من الحرية، أدوات تحليل أعمق.',
+    landing_professional_btn: 'الدخول كمحترف ←',
+
+    wants_prompt:         'ماذا يريد {name}؟',
+    evidence_label:       'ما هو دليلك؟ كيف تعرف ذلك؟',
+    evidence_placeholder: 'اذكر المصادر أو الملاحظات أو التجارب التي تدعم ذلك…',
+    perspectives_evidence:'الدليل / كيف نعرف',
+    edit_people:          '✎ الأشخاص',
+    legend_edit:          '✏ تعديل مفتاح الخريطة',
+    legend_editor_title:  'تعديل مفتاح الخريطة',
+    legend_add_custom:    '＋ إضافة نوع مخصص',
+    resize_hint:          '+/− لتغيير الحجم',
+    dup_name_hint:        'موجود في القائمة بالفعل',
+    max_people_hint:      'تم بلوغ الحد الأقصى',
+    confirm_delete:       'متأكد؟',
+  },
+
+  zh: {
+    the_situation:        '情况描述',
+    situation_placeholder:'例如：饥饿游戏、学校预算争议…',
+    who_is_affected:      '谁受到了影响？',
+    who_subtext:          '添加卷入此冲突的人物或群体。',
+    add_placeholder:      '命名一个人物或群体…',
+    next_wants:           '下一步 — 他们想要什么？→',
+    add_two_hint:         '至少添加2个人才能继续 ↑',
+    phase2of3:            '第2阶段，共3个',
+    wants_subtext:        '想得更深一点 — 他们真正需要什么？',
+    wants_placeholder:    '描述他们的目标、需求或动机…',
+    misunderstood_label:  '他们可能觉得自己被误解了吗？',
+    misunderstood_placeholder: '别人可能对他们有哪些误解？',
+    insight_text:         '思考：他们承受着什么压力？他们最看重什么？他们害怕失去什么？',
+    next_character:       '下一个人物 →',
+    finish_mapping:       '完成 — 绘制关系图 →',
+    phase3of3:            '第3阶段，共3个',
+    map_title:            '绘制关系图',
+    tap_to_begin:         '点击任意人物开始连接',
+    selected_hint:        '已选择{name} — 现在点击另一个人物',
+    finish_map:           '完成 — 查看我的关系图 →',
+    relationship_between: '之间的关系是什么：',
+    cooperation:          '合作',
+    cooperation_desc:     '共同朝着共同目标努力',
+    tension:              '紧张',
+    tension_desc:         '复杂 — 不太互相信任',
+    conflict_word:        '冲突',
+    conflict_desc:        '目标对立或直接摩擦',
+    power_dir_label:      '权力方向（可选）',
+    power_dir_none:       '无',
+    modal_save:           '保存 →',
+    cancel:               '取消',
+    legend_cooperation:   '合作',
+    legend_tension:       '紧张',
+    legend_conflict:      '冲突',
+    legend_power:         '权力方向',
+    relationship_map:     '关系图',
+    start_over:           '重新开始',
+    save_image:           '将关系图保存为图片',
+    analyze_another:      '分析另一种情况',
+    debrief_title:        '反思',
+    debrief_desc:         '使用这些问题来引导反思和讨论。',
+    debrief_q1:           '谁在这个网络中拥有最多的联系？',
+    debrief_q2:           '各方之间可能存在哪些共同点？',
+    debrief_q3:           '谁掌握最多的权力？这如何影响了冲突？',
+    debrief_q4:           '这张关系图让你感到什么惊喜？',
+    debrief_placeholder:  '在这里写下你的想法…',
+    settings_title:       '设置',
+    language_label:       '语言',
+    done:                 '完成',
+    supports_section_label: '语言支持',
+    supports_label:       '句型框架和词汇库',
+    supports_desc:        '为语言学习者提供的支架 — 句型框架、词汇库和反思引导语。',
+    frame_label:          '句型框架',
+    wordbank_label:       '词汇库 — 点击添加',
+    debrief_s1:           '我注意到 ___',
+    debrief_s2:           '我认为 ___，因为 ___',
+    debrief_s3:           '我想知道是否 ___',
+    debrief_s4:           '让我感到惊讶的是 ___',
+    perspectives_title:   '视角',
+    perspectives_wants:   '他们想要什么',
+    perspectives_mis:     '感到被误解',
+    perspectives_empty:   '（未填写）',
+    proj_new_map:         '新建关系图',
+    proj_your_maps:       '您的关系图',
+    proj_empty_text:      '您的关系图将显示在这里。\n点击新建关系图开始。',
+    proj_phase_start:     '设置',
+    proj_phase_wants:     '视角',
+    proj_phase_map:       '绘图',
+    proj_phase_final:     '完成',
+
+    landing_sub:              '一款面向和平建设者、教育者和从业者的冲突映射工具。',
+    landing_classroom:        '课堂',
+    landing_classroom_desc:   '为学生和教育者提供的简单利益相关者映射。引导步骤，清晰视觉，课堂上易于使用。',
+    landing_classroom_btn:    '进入课堂 →',
+    landing_professional:     '专业版',
+    landing_professional_desc:'为从业者和研究人员提供的完整冲突分析。更多细节，更多自由，更深入的分析工具。',
+    landing_professional_btn: '以专业版进入 →',
+
+    wants_prompt:         '{name}想要什么？',
+    evidence_label:       '你的依据是什么？你怎么知道的？',
+    evidence_placeholder: '列出支持这一点的来源、观察或经历…',
+    perspectives_evidence:'依据 / 我们如何知道',
+    edit_people:          '✎ 人物',
+    legend_edit:          '✏ 编辑图例',
+    legend_editor_title:  '编辑图例',
+    legend_add_custom:    '＋ 添加自定义类型',
+    resize_hint:          '+/− 调整大小',
+    dup_name_hint:        '已在列表中',
+    max_people_hint:      '已达上限',
+    confirm_delete:       '确定？',
+  },
+
+  sw: {
+    the_situation:        'Hali ya mambo',
+    situation_placeholder:'mf. Michezo ya Njaa, Mgogoro wa bajeti ya shule…',
+    who_is_affected:      'Nani anaathiriwa?',
+    who_subtext:          'Ongeza wahusika au makundi yanayohusika na mgogoro huu.',
+    add_placeholder:      'Taja mhusika au kundi…',
+    next_wants:           'Ifuatayo — Wanataka nini? →',
+    add_two_hint:         'Ongeza watu 2 angalau ili uendelee ↑',
+    phase2of3:            'Awamu ya 2 kati ya 3',
+    wants_subtext:        'Fikiria zaidi ya wanachosema — wanahitaji nini kweli kweli?',
+    wants_placeholder:    'Elezea malengo yao, mahitaji, au msukumo wao…',
+    misunderstood_label:  'Wanaweza kujisikiaje kutokuelewwa?',
+    misunderstood_placeholder: 'Wengine wanaweza kukosea nini kuhusu wao?',
+    insight_text:         'Fikiria: Wanakabiliwa na shinikizo gani? Wanakipatia thamani nini zaidi? Wanaogopa kupoteza nini?',
+    next_character:       'Mhusika mwingine →',
+    finish_mapping:       'Maliza — Chora ramani ya mahusiano →',
+    phase3of3:            'Awamu ya 3 kati ya 3',
+    map_title:            'Chora ramani ya mahusiano',
+    tap_to_begin:         'Bonyeza mhusika yeyote kuanza kuunganisha',
+    selected_hint:        '{name} amechaguliwa — sasa bonyeza mhusika mwingine',
+    finish_map:           'Maliza — Tazama ramani yangu →',
+    relationship_between: 'Uhusiano kati ya',
+    cooperation:          'Ushirikiano',
+    cooperation_desc:     'Kufanya kazi pamoja kuelekea malengo ya pamoja',
+    tension:              'Mvutano',
+    tension_desc:         'Ngumu — hawaamini vizuri',
+    conflict_word:        'Mgogoro',
+    conflict_desc:        'Malengo yanayopingana au msuguano wa moja kwa moja',
+    power_dir_label:      'Mwelekeo wa nguvu (si lazima)',
+    power_dir_none:       'Hakuna',
+    modal_save:           'Hifadhi →',
+    cancel:               'Ghairi',
+    legend_cooperation:   'Ushirikiano',
+    legend_tension:       'Mvutano',
+    legend_conflict:      'Mgogoro',
+    legend_power:         'Mwelekeo wa nguvu',
+    relationship_map:     'Ramani ya mahusiano',
+    start_over:           'Anza upya',
+    save_image:           'Hifadhi ramani kama picha',
+    analyze_another:      'Changanua hali nyingine',
+    debrief_title:        'Tathmini',
+    debrief_desc:         'Tumia maswali haya kuongoza tafakari na majadiliano.',
+    debrief_q1:           'Nani ana miunganiko mingi zaidi katika mtandao huu?',
+    debrief_q2:           'Wapi inaweza kuwepo msingi wa pamoja kati ya wadau?',
+    debrief_q3:           'Nani ana nguvu zaidi? Hilo linaathirije mgogoro?',
+    debrief_q4:           'Nini kilikushangaza katika ramani hii?',
+    debrief_placeholder:  'Andika mawazo yako hapa…',
+    settings_title:       'Mipangilio',
+    language_label:       'Lugha',
+    done:                 'Imekamilika',
+    supports_section_label: 'Misaada ya lugha',
+    supports_label:       'Miundo ya sentensi na hazina ya maneno',
+    supports_desc:        'Msaada kwa wanaojifunza — miundo ya sentensi, hazina ya maneno na vianzio vya tafakari.',
+    frame_label:          'Miundo ya sentensi',
+    wordbank_label:       'Hazina ya maneno — bonyeza kuongeza',
+    debrief_s1:           'Naona kwamba ___',
+    debrief_s2:           'Nafikiri ___ kwa sababu ___',
+    debrief_s3:           'Ninajua kama ___',
+    debrief_s4:           'Nilishangaa na ___',
+    perspectives_title:   'Mitazamo',
+    perspectives_wants:   'Wanachotaka',
+    perspectives_mis:     'Hujisikia kutokuelewwa',
+    perspectives_empty:   '(haikuandikwa)',
+    proj_new_map:         'Ramani mpya',
+    proj_your_maps:       'Ramani zako',
+    proj_empty_text:      'Ramani zako zitaonekana hapa.\nBonyeza Ramani mpya kuanza.',
+    proj_phase_start:     'Kuanza',
+    proj_phase_wants:     'Mitazamo',
+    proj_phase_map:       'Kuchora ramani',
+    proj_phase_final:     'Imekamilika',
+
+    landing_sub:              'Zana ya kuchora ramani ya migogoro kwa wajenzi wa amani, walimu, na wataalamu.',
+    landing_classroom:        'Darasa',
+    landing_classroom_desc:   'Kuchora ramani rahisi ya wadau kwa wanafunzi na walimu. Hatua za mwongozo, picha wazi, rahisi kutumia darasani.',
+    landing_classroom_btn:    'Ingia Darasani →',
+    landing_professional:     'Kitaalamu',
+    landing_professional_desc:'Uchambuzi kamili wa migogoro kwa wataalamu na watafiti. Maelezo zaidi, uhuru zaidi, zana za uchambuzi wa kina.',
+    landing_professional_btn: 'Ingia kama Mtaalamu →',
+
+    wants_prompt:         '{name} anataka nini?',
+    evidence_label:       'Ushahidi wako ni nini? Unajuaje?',
+    evidence_placeholder: 'Orodhesha vyanzo, uchunguzi, au uzoefu unaounga mkono hili…',
+    perspectives_evidence:'Ushahidi / tunavyojua',
+    edit_people:          '✎ Watu',
+    legend_edit:          '✏ Hariri ufunguo',
+    legend_editor_title:  'Hariri ufunguo',
+    legend_add_custom:    '＋ Ongeza aina maalum',
+    resize_hint:          '+/− kubadilisha ukubwa',
+    dup_name_hint:        'Tayari yupo kwenye orodha',
+    max_people_hint:      'Kikomo kimefikiwa',
+    confirm_delete:       'Una uhakika?',
+  },
+
+  ja: {
+    the_situation:        '状況',
+    situation_placeholder:'例：ハンガー・ゲーム、学校予算の争い…',
+    who_is_affected:      '誰が関係していますか？',
+    who_subtext:          'この対立に関わる人物やグループを追加してください。',
+    add_placeholder:      '人物やグループの名前を入力…',
+    next_wants:           '次へ — 彼らは何を望んでいますか？→',
+    add_two_hint:         '続けるには少なくとも2人を追加してください ↑',
+    phase2of3:            'フェーズ 2 / 3',
+    wants_subtext:        '言葉の表面だけでなく — 本当に必要なものは何でしょうか？',
+    wants_placeholder:    '彼らの目標、ニーズ、動機を説明してください…',
+    misunderstood_label:  'どのように誤解されていると感じているでしょうか？',
+    misunderstood_placeholder: '他の人が彼らについて誤解していることは何ですか？',
+    insight_text:         '考えてみてください：どんなプレッシャーを受けていますか？最も大切にしていることは？失うことを恐れているものは？',
+    next_character:       '次のキャラクター →',
+    finish_mapping:       '完了 — 関係をマッピング →',
+    phase3of3:            'フェーズ 3 / 3',
+    map_title:            '関係をマッピング',
+    tap_to_begin:         'キャラクターをタップして接続を開始',
+    selected_hint:        '{name}が選択されました — 別のキャラクターをタップ',
+    finish_map:           '完了 — マップを見る →',
+    relationship_between: '関係：',
+    cooperation:          '協力',
+    cooperation_desc:     '共通の目標に向けて共に取り組む',
+    tension:              '緊張',
+    tension_desc:         '複雑 — あまり信頼し合っていない',
+    conflict_word:        '対立',
+    conflict_desc:        '対立する目標または直接的な摩擦',
+    power_dir_label:      '力の方向（任意）',
+    power_dir_none:       'なし',
+    modal_save:           '保存 →',
+    cancel:               'キャンセル',
+    legend_cooperation:   '協力',
+    legend_tension:       '緊張',
+    legend_conflict:      '対立',
+    legend_power:         '力の方向',
+    relationship_map:     '関係マップ',
+    start_over:           'やり直す',
+    save_image:           'マップを画像として保存',
+    analyze_another:      '別の状況を分析',
+    debrief_title:        '振り返り',
+    debrief_desc:         'これらの質問を使って、思考と議論を深めましょう。',
+    debrief_q1:           'この関係図の中で、最も多くのつながりを持つのは誰ですか？',
+    debrief_q2:           '各者の間に共通点がある場合、どこにあるでしょうか？',
+    debrief_q3:           '最も力を持つのは誰ですか？それが対立にどう影響していますか？',
+    debrief_q4:           'このマップで驚いたことは何ですか？',
+    debrief_placeholder:  'ここに考えを書いてください…',
+    settings_title:       '設定',
+    language_label:       '言語',
+    done:                 '完了',
+    supports_section_label: '言語サポート',
+    supports_label:       '文構造と語彙リスト',
+    supports_desc:        '言語学習者向けの支援 — 文構造、語彙リスト、振り返り文頭。',
+    frame_label:          '文構造',
+    wordbank_label:       '語彙リスト — タップして追加',
+    debrief_s1:           '私は ___ に気づきます',
+    debrief_s2:           '私は ___ と思います、なぜなら ___',
+    debrief_s3:           '___ かどうか気になります',
+    debrief_s4:           '___ に驚きました',
+    perspectives_title:   '視点',
+    perspectives_wants:   '彼らが望むこと',
+    perspectives_mis:     '誤解されていると感じる',
+    perspectives_empty:   '（未記入）',
+    proj_new_map:         '新しいマップ',
+    proj_your_maps:       'あなたのマップ',
+    proj_empty_text:      'マップはここに表示されます。\n新しいマップをタップして始めてください。',
+    proj_phase_start:     '開始',
+    proj_phase_wants:     '視点',
+    proj_phase_map:       'マッピング',
+    proj_phase_final:     '完了',
+
+    landing_sub:              '平和構築者、教育者、実践者のための対立マッピングツール。',
+    landing_classroom:        '教室',
+    landing_classroom_desc:   '生徒と教育者のためのシンプルなステークホルダーマッピング。ガイド付きステップ、見やすいビジュアル、授業で使いやすい。',
+    landing_classroom_btn:    '教室に入る →',
+    landing_professional:     'プロフェッショナル',
+    landing_professional_desc:'実践者や研究者のための本格的な対立分析。より詳細に、より自由に、より深い分析ツール。',
+    landing_professional_btn: 'プロフェッショナルとして入る →',
+
+    wants_prompt:         '{name}は何を望んでいますか？',
+    evidence_label:       '根拠は何ですか？どうやって知りましたか？',
+    evidence_placeholder: 'これを裏付ける情報源、観察、経験を挙げてください…',
+    perspectives_evidence:'根拠・どうやって知ったか',
+    edit_people:          '✎ 人物',
+    legend_edit:          '✏ 凡例を編集',
+    legend_editor_title:  '凡例を編集',
+    legend_add_custom:    '＋ カスタムタイプを追加',
+    resize_hint:          '+/− でサイズ変更',
+    dup_name_hint:        'すでに追加されています',
+    max_people_hint:      '上限に達しました',
+    confirm_delete:       '削除する？',
+  },
+};
+
+function T(key) {
+  return (STRINGS[S.lang] && STRINGS[S.lang][key]) || STRINGS.en[key] || key;
+}
+
+// Escape user-entered text before interpolating into innerHTML
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = T(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = T(el.dataset.i18nPh);
+  });
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === S.lang);
+  });
+  document.documentElement.lang = S.lang;
+
+  // Dynamic Phase 2 elements
+  if (S.people.length > 0 && S.phase2idx < S.people.length) {
+    renderWantsPrompt();
+    const isLast = S.phase2idx === S.people.length - 1;
+    const btn = document.getElementById('btn-next-person');
+    if (btn) btn.textContent = isLast ? T('finish_mapping') : T('next_character');
+  }
+
+  // Map hint (if not mid-selection)
+  if (S.selectedNode === null) {
+    const hint = document.getElementById('map-hint');
+    if (hint) hint.textContent = T('tap_to_begin');
+  }
+
+  // Re-render language support content when language changes
+  if (S.supports) renderSupportsContent();
+}
+
+// ==================== VOCAB & FRAMES ====================
+
+const VOCAB = {
+  en: ['safety', 'fairness', 'respect', 'power', 'trust', 'belonging', 'recognition', 'fear'],
+  es: ['seguridad', 'justicia', 'respeto', 'poder', 'confianza', 'pertenencia', 'reconocimiento', 'miedo'],
+  pt: ['segurança', 'justiça', 'respeito', 'poder', 'confiança', 'pertencimento', 'reconhecimento', 'medo'],
+  fr: ['sécurité', 'équité', 'respect', 'pouvoir', 'confiance', 'appartenance', 'reconnaissance', 'peur'],
+  de: ['Sicherheit', 'Gerechtigkeit', 'Respekt', 'Macht', 'Vertrauen', 'Zugehörigkeit', 'Anerkennung', 'Angst'],
+  ar: ['الأمان', 'العدالة', 'الاحترام', 'القوة', 'الثقة', 'الانتماء', 'الاعتراف', 'الخوف'],
+  zh: ['安全', '公平', '尊重', '权力', '信任', '归属感', '认可', '恐惧'],
+  sw: ['usalama', 'haki', 'heshima', 'nguvu', 'imani', 'kuhisi mali', 'kutambuliwa', 'hofu'],
+  ja: ['安全', '公正', '尊重', '力', '信頼', '帰属', '認識', '恐れ'],
+};
+
+const FRAMES = {
+  en: {
+    wants: [
+      'They want ___ because ___',
+      'Their goal is to ___',
+      'They need ___ to feel ___',
+    ],
+    mis: [
+      'Others think ___, but really ___',
+      'They feel misunderstood when ___',
+    ],
+  },
+  es: {
+    wants: [
+      'Quieren ___ porque ___',
+      'Su meta es ___',
+      'Necesitan ___ para sentirse ___',
+    ],
+    mis: [
+      'Otros piensan ___, pero en realidad ___',
+      'Se sienten incomprendidos/as cuando ___',
+    ],
+  },
+  pt: {
+    wants: [
+      'Eles querem ___ porque ___',
+      'O objetivo deles é ___',
+      'Eles precisam de ___ para se sentir ___',
+    ],
+    mis: [
+      'Outros pensam ___, mas na verdade ___',
+      'Eles se sentem incompreendidos quando ___',
+    ],
+  },
+  fr: {
+    wants: [
+      'Ils veulent ___ parce que ___',
+      'Leur objectif est de ___',
+      'Ils ont besoin de ___ pour se sentir ___',
+    ],
+    mis: [
+      'Les autres pensent ___, mais en réalité ___',
+      'Ils se sentent incompris quand ___',
+    ],
+  },
+  de: {
+    wants: [
+      'Sie wollen ___, weil ___',
+      'Ihr Ziel ist es, ___',
+      'Sie brauchen ___, um sich ___ zu fühlen',
+    ],
+    mis: [
+      'Andere denken ___, aber eigentlich ___',
+      'Sie fühlen sich missverstanden, wenn ___',
+    ],
+  },
+  ar: {
+    wants: [
+      'يريدون ___ لأن ___',
+      'هدفهم هو ___',
+      'يحتاجون إلى ___ ليشعروا بـ ___',
+    ],
+    mis: [
+      'يظن الآخرون ___, لكن في الواقع ___',
+      'يشعرون بسوء الفهم عندما ___',
+    ],
+  },
+  zh: {
+    wants: [
+      '他们想要 ___，因为 ___',
+      '他们的目标是 ___',
+      '他们需要 ___ 才能感到 ___',
+    ],
+    mis: [
+      '别人认为 ___，但实际上 ___',
+      '当 ___ 时，他们觉得被误解了',
+    ],
+  },
+  sw: {
+    wants: [
+      'Wanataka ___ kwa sababu ___',
+      'Lengo lao ni ___',
+      'Wanahitaji ___ ili wajisikie ___',
+    ],
+    mis: [
+      'Wengine wanafikiri ___, lakini kweli ___',
+      'Wanajisikia kutokuelewwa wakati ___',
+    ],
+  },
+  ja: {
+    wants: [
+      '彼らは ___ を望んでいます。なぜなら ___',
+      '彼らの目標は ___ です',
+      '彼らは ___ と感じるために ___ が必要です',
+    ],
+    mis: [
+      '他の人は ___ と思っていますが、実際は ___',
+      '___ のとき、彼らは誤解されていると感じます',
+    ],
+  },
+};
+
+// ==================== STATE ====================
+
+const S = {
+  situation:    '',
+  people:       [],  // [{ name }]
+  wants:        {},  // name → string
+  misunderstood:{},  // name → string
+  evidence:     {},  // name → string (pro mode only)
+  debrief:      {},  // q1–q4 → reflection text
+  rels:         [],  // [{ a, b, color, direction }]  direction: 'none'|'a→b'|'b→a'
+  phase2idx:    0,
+  selectedNode: null,
+  pendingNode:  null,
+  lang:         'en',
+  supports:     false,
+  projectId:    null,
+  createdAt:    null,
+  phase:        'start',  // 'start' | 'wants' | 'map' | 'final'
+  mapScale:     1.0,
+  bubbleSizes:  {},  // name → scale multiplier (1.0 = default)
+  mode:         null,  // 'classroom' | 'professional'
+  // ── Pro mode fields ──
+  nodePositions: {},  // name → {x,y} — drag overrides
+  bubbleColors:       {},  // name → hex fill color
+  bubbleBorderColors: {},  // name → hex border color (null = auto: match fill or default)
+  nodeShapes:    {},  // name → 'circle'|'square'|'triangle'
+  legendTypes:   null, // null = use defaults; [{key,label,color}] when customised
+  mapPan:  {x:0, y:0},
+  mapZoom: 1.0,
+};
+
+const COLOR_HEX = {
+  green:  '#5dab6e',
+  yellow: '#e8b800',
+  red:    '#c95542',
+  // Legacy key aliases used by older saved projects
+  cooperation: '#5dab6e',
+  tension:     '#e8b800',
+  conflict:    '#c95542',
+};
+
+let mapPositions   = [];
+let finalPositions = [];
+
+// Modal state
+let _modalColor         = null;
+let _modalDir           = 'none';
+let _modalLinePattern   = 'solid';
+let _modalLineShape     = 'straight';
+let _modalLineThickness = 2;
+
+// ==================== SETTINGS ====================
+
+function openSettings()  { document.getElementById('settings-overlay').classList.add('open'); }
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+
+function setLang(lang) {
+  S.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  applyTranslations();
+}
+
+function setSupports(on) {
+  S.supports = on;
+  document.getElementById('supports-toggle').classList.toggle('on', on);
+  if (on) renderSupportsContent();
+  applySupportsVisibility();
+}
+
+function applySupportsVisibility() {
+  const show = S.supports;
+  ['frames-wants', 'frames-mis', 'wordbank-section'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? 'block' : 'none';
+  });
+  ['sp-frames-wants', 'sp-frames-mis'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? 'block' : 'none';
+  });
+  document.querySelectorAll('.debrief-starter').forEach(el => {
+    el.style.display = show ? 'block' : 'none';
+  });
+}
+
+function renderSupportsContent() {
+  const lang = (FRAMES[S.lang] && VOCAB[S.lang]) ? S.lang : 'en';
+  renderFrameChips('frame-chips-wants', FRAMES[lang].wants, 'wants-textarea');
+  renderFrameChips('frame-chips-mis',   FRAMES[lang].mis,   'misunderstood-textarea');
+  renderWordChips('wordbank-chips', VOCAB[lang]);
+  // Debrief starters via data-i18n (already handled by applyTranslations)
+}
+
+function renderFrameChips(containerId, frames, targetId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  frames.forEach(text => {
+    const chip = document.createElement('button');
+    chip.className   = 'frame-chip';
+    chip.textContent = text;
+    chip.onclick     = () => insertFrame(text, targetId);
+    container.appendChild(chip);
+  });
+}
+
+function renderWordChips(containerId, words) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  words.forEach(word => {
+    const chip = document.createElement('button');
+    chip.className   = 'wordbank-chip';
+    chip.textContent = word;
+    chip.onclick     = () => insertWord(word);
+    container.appendChild(chip);
+  });
+}
+
+let _lastFocusedTA = 'wants-textarea';
+
+function insertFrame(text, targetId) {
+  _lastFocusedTA = targetId;
+  const ta   = document.getElementById(targetId);
+  ta.value   = text;
+  ta.focus();
+  const pos  = text.indexOf('___');
+  if (pos >= 0) ta.setSelectionRange(pos, pos + 3);
+}
+
+function insertWord(word) {
+  const ta = document.getElementById(_lastFocusedTA) || document.getElementById('wants-textarea');
+  const sel = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const cur = ta.value;
+  // If a ___ is selected, replace it; otherwise append
+  if (cur.substring(sel, end) === '___') {
+    ta.value = cur.substring(0, sel) + word + cur.substring(end);
+    ta.setSelectionRange(sel + word.length, sel + word.length);
+  } else {
+    const needsSpace = cur.length > 0 && !cur.endsWith(' ');
+    ta.value = cur + (needsSpace ? ' ' : '') + word;
+  }
+  ta.focus();
+}
+
+document.getElementById('settings-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// ==================== PHASE 1 ====================
+
+document.getElementById('stakeholder-input')
+  .addEventListener('keydown', e => { if (e.key === 'Enter') addStakeholder(); });
+
+document.getElementById('wants-textarea')
+  .addEventListener('focus', () => { _lastFocusedTA = 'wants-textarea'; });
+document.getElementById('misunderstood-textarea')
+  .addEventListener('focus', () => { _lastFocusedTA = 'misunderstood-textarea'; });
+document.getElementById('evidence-textarea')
+  .addEventListener('focus', () => { _lastFocusedTA = 'evidence-textarea'; });
+
+// Debrief answers: track in state as the user types, persist on blur
+[1, 2, 3, 4].forEach(i => {
+  const ta = document.getElementById(`debrief-${i}`);
+  ta.addEventListener('input',  () => { S.debrief[`q${i}`] = ta.value; });
+  ta.addEventListener('change', () => saveProject());
+});
+
+// Briefly show a rejection reason in the hint slot, then restore it
+let _addHintTimer = null;
+function flashAddHint(msg) {
+  const el = document.getElementById('min-hint');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(_addHintTimer);
+  _addHintTimer = setTimeout(() => {
+    el.textContent = T('add_two_hint');
+    updateP1Btn();
+  }, 2000);
+}
+
+function addStakeholder() {
+  const inp     = document.getElementById('stakeholder-input');
+  const name    = inp.value.trim();
+  const maxPpl  = S.mode === 'professional' ? 15 : 9;
+  if (!name) return;
+  if (S.people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    inp.select(); flashAddHint(T('dup_name_hint')); return;
+  }
+  if (S.people.length >= maxPpl) { inp.select(); flashAddHint(T('max_people_hint')); return; }
+  S.people.push({ name });
+  inp.value = '';
+  inp.focus();
+  renderPills();
+  updateP1Btn();
+}
+
+function removeStakeholder(idx) {
+  S.people.splice(idx, 1);
+  // Rels reference people by array index — drop rels touching the removed
+  // person and shift the higher indices down so the rest stay accurate.
+  S.rels = S.rels
+    .filter(r => r.a !== idx && r.b !== idx)
+    .map(r => ({ ...r,
+      a: r.a > idx ? r.a - 1 : r.a,
+      b: r.b > idx ? r.b - 1 : r.b }));
+  renderPills();
+  updateP1Btn();
+}
+
+function renderPills() {
+  const grid = document.getElementById('bubbles-grid');
+  grid.innerHTML = '';
+  S.people.forEach((p, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'pill-bubble';
+    const nm = document.createElement('span');
+    nm.textContent = p.name;
+    const x = document.createElement('span');
+    x.className = 'pill-x';
+    x.textContent = '✕';
+    x.addEventListener('click', () => removeStakeholder(i));
+    pill.appendChild(nm);
+    pill.appendChild(x);
+    grid.appendChild(pill);
+  });
+}
+
+function updateP1Btn() {
+  const n = S.people.length;
+  document.getElementById('btn-p1-next').disabled = n < 2;
+  document.getElementById('min-hint').style.display = (n === 1) ? 'block' : 'none';
+}
+
+function backPhase2() {
+  // Save current person's data before going back
+  const p = S.people[S.phase2idx];
+  if (p) {
+    S.wants[p.name]         = document.getElementById('wants-textarea').value.trim();
+    S.misunderstood[p.name] = document.getElementById('misunderstood-textarea').value.trim();
+    S.evidence[p.name]      = document.getElementById('evidence-textarea').value.trim();
+  }
+  if (S.phase2idx > 0) {
+    S.phase2idx--;
+    showScreen('s-wants');
+    renderPhase2();
+  } else {
+    _editingStakeholders = true;
+    showScreen('s-welcome');
+  }
+}
+
+function backPhase3() {
+  // Return to last person in Phase 2
+  S.phase2idx = S.people.length - 1;
+  showScreen('s-wants');
+  renderPhase2();
+}
+
+let _editingStakeholders = false;
+
+function backToPhase1() {
+  _editingStakeholders = true;
+  // Rels are preserved — removeStakeholder() remaps their indices, so editing
+  // people no longer wipes (or scrambles) the relationship map.
+  document.getElementById('situation-input').value = S.situation;
+  renderPills();
+  updateP1Btn();
+  saveProject();
+  showScreen('s-welcome');
+}
+
+const BUBBLE_STEPS = [0.5, 0.65, 0.8, 1.0, 1.25, 1.55, 2.0];
+
+function resizeBubbles(dir) {
+  if (S.selectedNode !== null) {
+    // Resize the selected bubble individually
+    const name = S.people[S.selectedNode].name;
+    const cur  = S.bubbleSizes[name] || 1.0;
+    const idx  = BUBBLE_STEPS.reduce((b, s, i) =>
+      Math.abs(s - cur) < Math.abs(BUBBLE_STEPS[b] - cur) ? i : b, 0);
+    const next = Math.max(0, Math.min(BUBBLE_STEPS.length - 1, idx + dir));
+    S.bubbleSizes[name] = BUBBLE_STEPS[next];
+    renderMapNodes();
+    // Restore selection after re-render
+    S.selectedNode = S.people.findIndex(p => p.name === name);
+    refreshNodes();
+    setHint(esc(T('selected_hint')).replace('{name}', `<strong>${esc(name)}</strong>`) +
+      ` &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">${T('resize_hint')}</span>`);
+  } else {
+    // No bubble selected — resize all globally
+    const GSTEPS = [0.65, 0.8, 1.0, 1.2, 1.4];
+    const cur  = S.mapScale;
+    const idx  = GSTEPS.reduce((b, s, i) =>
+      Math.abs(s - cur) < Math.abs(GSTEPS[b] - cur) ? i : b, 0);
+    const next = Math.max(0, Math.min(GSTEPS.length - 1, idx + dir));
+    S.mapScale = GSTEPS[next];
+    renderMapNodes();
+  }
+  saveProject();
+}
+
+function goPhase2() {
+  S.situation = document.getElementById('situation-input').value.trim() || 'Untitled Situation';
+  if (_editingStakeholders) {
+    // Coming back to add/edit people — preserve all existing wants/misunderstood data.
+    // Jump straight to the first person who hasn't filled in their info yet.
+    const firstNew = S.people.findIndex(p => !S.wants[p.name]);
+    S.phase2idx = firstNew >= 0 ? firstNew : 0;
+  } else {
+    S.wants         = {};
+    S.misunderstood = {};
+    S.phase2idx     = 0;
+  }
+  _editingStakeholders = false;
+  S.phase = 'wants';
+  saveProject();
+  showScreen('s-wants');
+  renderPhase2();
+}
+
+// ==================== PHASE 2 ====================
+
+function renderWantsPrompt() {
+  const name = S.people[S.phase2idx]?.name || '';
+  document.getElementById('wants-prompt').innerHTML =
+    esc(T('wants_prompt')).replace('{name}', `<span style="color:var(--teal)">${esc(name)}</span>`);
+}
+
+function renderPhase2() {
+  const i   = S.phase2idx;
+  const tot = S.people.length;
+  const p   = S.people[i];
+
+  // Animate bubble swap
+  const bubble = document.getElementById('wants-bubble');
+  bubble.style.transition = 'none';
+  bubble.style.opacity    = '0';
+  bubble.style.transform  = 'scale(0.8)';
+  setTimeout(() => {
+    bubble.textContent      = p.name;
+    bubble.style.transition = 'opacity 0.25s ease, transform 0.3s cubic-bezier(0.34,1.5,0.64,1)';
+    bubble.style.opacity    = '1';
+    bubble.style.transform  = 'scale(1)';
+  }, 60);
+
+  renderWantsPrompt();
+  document.getElementById('wants-textarea').value         = S.wants[p.name] || '';
+  document.getElementById('misunderstood-textarea').value = S.misunderstood[p.name] || '';
+  const isPro = S.mode === 'professional';
+  document.getElementById('evidence-section').style.display = isPro ? '' : 'none';
+  document.getElementById('evidence-textarea').value = S.evidence[p.name] || '';
+  setTimeout(() => document.getElementById('wants-textarea').focus(), 120);
+
+  const isLast = (i === tot - 1);
+  document.getElementById('btn-next-person').textContent =
+    isLast ? T('finish_mapping') : T('next_character');
+
+  // Progress dots
+  const track = document.getElementById('prog-track');
+  track.innerHTML = '';
+  for (let j = 0; j < tot; j++) {
+    const d = document.createElement('div');
+    d.className = 'prog-dot' + (j < i ? ' done' : j === i ? ' active' : '');
+    track.appendChild(d);
+  }
+}
+
+function nextPerson() {
+  const p = S.people[S.phase2idx];
+  S.wants[p.name]         = document.getElementById('wants-textarea').value.trim() || '(not specified)';
+  S.misunderstood[p.name] = document.getElementById('misunderstood-textarea').value.trim();
+  S.evidence[p.name]      = document.getElementById('evidence-textarea').value.trim();
+
+  if (S.phase2idx < S.people.length - 1) {
+    S.phase2idx++;
+    saveProject();
+    renderPhase2();
+  } else {
+    goPhase3();
+  }
+}
+
+// ==================== PHASE 3 ====================
+
+function goPhase3() {
+  // Don't reset S.rels here — connections are preserved when navigating back from
+  // the Final screen. Rels are cleared in backToPhase1() when stakeholders are edited,
+  // and in newMap()/startOver() when starting fresh.
+  S.selectedNode = null;
+  S.pendingNode  = null;
+  S.phase        = 'map';
+  saveProject();
+  showScreen('s-map');
+  setTimeout(renderMapNodes, 100);
+}
+
+function backFinal() {
+  // Return from the Final screen to the Phase 3 relationship map.
+  // Connections and positions are all preserved (nothing is reset here).
+  S.selectedNode = null;
+  S.pendingNode  = null;
+  S.phase        = 'map';
+  hideBubblePalette();
+  saveProject();
+  showScreen('s-map');
+  setTimeout(renderMapNodes, 100);
+}
+
+// ==================== PRO: PALETTE & LEGEND TYPES ====================
+
+const BUBBLE_PALETTE = ['#ffffff','#8fae8b','#4e9aa4','#7fb3d3','#b39ddb','#ffb74d','#ef9a9a','#78909c'];
+const REL_PALETTE    = ['#5dab6e','#e8b800','#c95542','#4e9aa4','#b39ddb','#ffb74d','#78909c','#2e2e2a'];
+
+function isDarkColor(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return (0.299*r + 0.587*g + 0.114*b) < 140;
+}
+
+function getLegendTypes() {
+  if (S.legendTypes) return S.legendTypes;
+  return [
+    {key:'green',  label:T('legend_cooperation'), color:'#5dab6e'},
+    {key:'yellow', label:T('legend_tension'),      color:'#e8b800'},
+    {key:'red',    label:T('legend_conflict'),     color:'#c95542'},
+  ];
+}
+
+function applyMapTransform() {
+  const vp = document.getElementById('map-viewport');
+  if (vp) vp.style.transform = `translate(${S.mapPan.x}px,${S.mapPan.y}px) scale(${S.mapZoom})`;
+}
+
+function resetMapView() {
+  S.mapPan  = {x:0, y:0};
+  S.mapZoom = 1.0;
+  applyMapTransform();
+}
+
+// ==================== CIRCLE LAYOUT ====================
+
+function circlePositions(n, cx, cy, r) {
+  return Array.from({ length: n }, (_, i) => {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
+}
+
+function baseSize(n) {
+  if (n <= 3)  return 86;
+  if (n <= 5)  return 78;
+  if (n <= 7)  return 70;
+  if (n <= 9)  return 62;
+  if (n <= 12) return 52;
+  return 44;
+}
+
+// Current pixel size of every bubble (global scale × per-bubble multiplier),
+// in people-array order — the shape drawLines() expects.
+function currentBubbleSizes() {
+  const baseSz = Math.round(baseSize(S.people.length) * S.mapScale);
+  return S.people.map(p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0)));
+}
+
+function bubbleFontSize(name, sz) {
+  const area  = sz - 10;
+  const chars = name.length;
+  if (chars <= 6)  return Math.min(13, Math.floor(area / 3.5));
+  if (chars <= 10) return Math.min(11, Math.floor(area / 5));
+  if (chars <= 14) return Math.min(10, Math.floor(area / 6));
+  return Math.min(9, Math.floor(area / 7));
+}
+
+function renderMapNodes() {
+  const container = document.getElementById('map-container');
+  const viewport  = document.getElementById('map-viewport');
+  const svg       = document.getElementById('rel-svg');
+  viewport.querySelectorAll('.node-bubble').forEach(n => n.remove());
+
+  const W      = container.clientWidth;
+  const H      = container.clientHeight;
+  const n      = S.people.length;
+  const baseSz = Math.round(baseSize(n) * S.mapScale);
+  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
+  // Shrink the layout circle if the largest bubble would clip the container edge
+  const maxSz  = Math.max(...S.people.map(getSz));
+  let r        = Math.min(W, H) * (n <= 2 ? 0.26 : n <= 9 ? 0.33 : 0.37);
+  r            = Math.max(40, Math.min(r, (Math.min(W, H) - maxSz) / 2 - 8));
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  // Use saved (dragged) positions if available, else default circle layout
+  const defaults = circlePositions(n, W / 2, H / 2, r);
+  mapPositions = defaults.map((pos, i) => S.nodePositions[S.people[i].name] || pos);
+
+  S.people.forEach((p, i) => {
+    const sz  = getSz(p);
+    const pos = mapPositions[i];
+    const node = document.createElement('div');
+    node.className = 'node-bubble';
+    node.style.left = pos.x + 'px';
+    node.style.top  = pos.y + 'px';
+    node.style.width = node.style.height = sz + 'px';
+    node.style.fontSize = bubbleFontSize(p.name, sz) + 'px';
+    node.dataset.idx = i;
+    const _bspan = document.createElement('span');
+    _bspan.className = 'bubble-text';
+    _bspan.textContent = p.name;
+    node.appendChild(_bspan);
+
+    // Pro: custom bubble color + shape
+    if (S.mode === 'professional') applyBubbleStyle(node, p.name);
+
+    if (S.mode === 'professional') {
+      node.addEventListener('mousedown',  e => { e.stopPropagation(); e.preventDefault(); startNodeDrag(node, i, e.clientX, e.clientY); });
+      node.addEventListener('touchstart', e => { if (e.touches.length === 1) { e.stopPropagation(); startNodeDrag(node, i, e.touches[0].clientX, e.touches[0].clientY); } }, {passive:true});
+    } else {
+      node.addEventListener('click', () => onNodeClick(i));
+    }
+    viewport.appendChild(node);
+  });
+
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
+  applyMapTransform();
+  renderMapLegend();
+  initPanZoom(container);
+}
+
+function onNodeClick(idx) {
+  if (S.selectedNode === null) {
+    S.selectedNode = idx;
+    refreshNodes();
+    const hint = esc(T('selected_hint')).replace('{name}', `<strong>${esc(S.people[idx].name)}</strong>`) +
+      ` &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">${T('resize_hint')}</span>`;
+    setHint(hint);
+    if (S.mode === 'professional') showBubblePalette(idx);
+  } else if (S.selectedNode === idx) {
+    S.selectedNode = null;
+    refreshNodes();
+    setHint(T('tap_to_begin'));
+    hideBubblePalette();
+  } else {
+    S.pendingNode = idx;
+    const nameA = S.people[S.selectedNode].name;
+    const nameB = S.people[idx].name;
+    document.getElementById('modal-pair-text').textContent = `${nameA} & ${nameB}`;
+    hideBubblePalette();
+    openColorModal(nameA, nameB);
+  }
+}
+
+function refreshNodes() {
+  document.querySelectorAll('.node-bubble').forEach((n, i) => {
+    n.classList.toggle('selected', i === S.selectedNode);
+  });
+}
+
+function setHint(html) { document.getElementById('map-hint').innerHTML = `<span>${html}</span>`; }
+
+// ==================== COLOR MODAL ====================
+
+const CHOICE_EMOJI = {green:'🤝', yellow:'😬', red:'⚡'};
+
+function openColorModal(nameA, nameB) {
+  _modalColor         = null;
+  _modalDir           = 'none';
+  _modalLinePattern   = 'solid';
+  _modalLineShape     = 'straight';
+  _modalLineThickness = 2;
+
+  // If an existing relationship exists between these two, pre-fill its settings
+  const a = S.selectedNode, b = S.pendingNode;
+  const existing = S.rels.find(r => (r.a===a && r.b===b) || (r.a===b && r.b===a));
+  if (existing) {
+    _modalDir           = existing.direction      || 'none';
+    _modalLinePattern   = existing.linePattern    || 'solid';
+    _modalLineShape     = existing.lineShape      || 'straight';
+    _modalLineThickness = existing.lineThickness  || 2;
+  }
+
+  // Render choices dynamically from legend types
+  const choices = document.getElementById('color-choices');
+  choices.innerHTML = '';
+  choices.classList.remove('has-selection');
+  const DESC_KEYS = { green: 'cooperation_desc', yellow: 'tension_desc', red: 'conflict_desc' };
+  getLegendTypes().forEach(type => {
+    const div = document.createElement('div');
+    const isDefault = type.key in DESC_KEYS;
+    // Default types get their .green/.yellow/.red styling (colored border +
+    // tinted background); custom types get their color as an inline border.
+    div.className = 'color-choice' + (isDefault ? ` ${type.key}` : '');
+    div.id = `cc-${type.key}`;
+    if (!isDefault) div.style.borderColor = type.color;
+    div.onclick = () => selectModalColor(type.key);
+    const dot = document.createElement('div');
+    dot.className = 'choice-dot';
+    dot.style.background = type.color;
+    const emoji = document.createElement('span');
+    emoji.className = 'choice-emoji';
+    emoji.textContent = CHOICE_EMOJI[type.key] || '●';
+    if (!CHOICE_EMOJI[type.key]) emoji.style.color = type.color;
+    const textWrap = document.createElement('div');
+    const label = document.createElement('div');
+    label.className = 'choice-label';
+    label.textContent = type.label;
+    textWrap.appendChild(label);
+    if (DESC_KEYS[type.key]) {
+      const sub = document.createElement('div');
+      sub.className = 'choice-sub';
+      sub.textContent = T(DESC_KEYS[type.key]);
+      textWrap.appendChild(sub);
+    }
+    div.appendChild(dot);
+    div.appendChild(emoji);
+    div.appendChild(textWrap);
+    choices.appendChild(div);
+  });
+
+  // Hide direction + confirm + line style
+  document.getElementById('dir-section').style.display        = 'none';
+  document.getElementById('line-style-section').style.display = 'none';
+  document.getElementById('modal-confirm-wrap').style.display = 'none';
+
+  // Set direction button labels
+  document.getElementById('dir-none').textContent = T('power_dir_none');
+  document.getElementById('dir-atob').textContent = `→ ${nameB}`;
+  document.getElementById('dir-btoa').textContent = `→ ${nameA}`;
+
+  // Apply pre-filled direction selection
+  document.querySelectorAll('.dir-opt').forEach(b => b.classList.remove('active'));
+  document.getElementById(`dir-${_modalDir === 'a→b' ? 'atob' : _modalDir === 'b→a' ? 'btoa' : 'none'}`).classList.add('active');
+
+  // Apply pre-filled line style selections
+  _applyLineStyleUI();
+
+  // If editing existing rel, show all sections immediately
+  if (existing) {
+    _modalColor = existing.color;
+    choices.classList.add('has-selection');
+    const sel = document.getElementById(`cc-${existing.color}`);
+    if (sel) sel.classList.add('selected');
+    document.getElementById('dir-section').style.display        = '';
+    if (S.mode === 'professional') document.getElementById('line-style-section').style.display = '';
+    document.getElementById('modal-confirm-wrap').style.display = '';
+  }
+
+  document.getElementById('color-overlay').classList.add('open');
+}
+
+function _applyLineStyleUI() {
+  document.querySelectorAll('#pattern-row .line-opt').forEach(b =>
+    b.classList.toggle('active', b.dataset.pattern === _modalLinePattern));
+  document.querySelectorAll('#shape-row .line-opt').forEach(b =>
+    b.classList.toggle('active', b.dataset.shape === _modalLineShape));
+  document.querySelectorAll('#thickness-row .thick-opt').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.thickness) === _modalLineThickness));
+}
+
+function selectLinePattern(p) {
+  _modalLinePattern = p;
+  document.querySelectorAll('#pattern-row .line-opt').forEach(b =>
+    b.classList.toggle('active', b.dataset.pattern === p));
+}
+
+function selectLineShape(s) {
+  _modalLineShape = s;
+  document.querySelectorAll('#shape-row .line-opt').forEach(b =>
+    b.classList.toggle('active', b.dataset.shape === s));
+}
+
+function selectThickness(t) {
+  _modalLineThickness = t;
+  document.querySelectorAll('#thickness-row .thick-opt').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.thickness) === t));
+}
+
+function selectModalColor(key) {
+  _modalColor = key;
+
+  const choices = document.getElementById('color-choices');
+  choices.classList.add('has-selection');
+  choices.querySelectorAll('.color-choice').forEach(el => {
+    el.classList.toggle('selected', el.id === `cc-${key}`);
+  });
+
+  document.getElementById('dir-section').style.display = '';
+  if (S.mode === 'professional') {
+    document.getElementById('line-style-section').style.display = '';
+    _applyLineStyleUI();
+  }
+  document.getElementById('modal-confirm-wrap').style.display = '';
+}
+
+function selectDir(dir) {
+  _modalDir = dir;
+  document.querySelectorAll('.dir-opt').forEach(b => {
+    b.classList.toggle('active', b.dataset.dir === dir);
+  });
+}
+
+function confirmRelationship() {
+  if (!_modalColor || S.selectedNode === null || S.pendingNode === null) return;
+  const a = S.selectedNode;
+  const b = S.pendingNode;
+  S.rels = S.rels.filter(r => !((r.a === a && r.b === b) || (r.a === b && r.b === a)));
+  const rel = { a, b, color: _modalColor, direction: _modalDir };
+  if (S.mode === 'professional') {
+    rel.linePattern   = _modalLinePattern;
+    rel.lineShape     = _modalLineShape;
+    rel.lineThickness = _modalLineThickness;
+  }
+  S.rels.push(rel);
+  S.selectedNode = null;
+  S.pendingNode  = null;
+  document.getElementById('color-overlay').classList.remove('open');
+  refreshNodes();
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
+  setHint(T('tap_to_begin'));
+  saveProject();
+}
+
+function cancelColor() {
+  S.pendingNode = null;
+  document.getElementById('color-overlay').classList.remove('open');
+}
+
+// Close overlay on backdrop tap
+document.getElementById('color-overlay').addEventListener('click', function(e) {
+  if (e.target === this) cancelColor();
+});
+
+// ==================== DRAW LINES ====================
+
+function drawLines(svgId, positions, szOrSizes) {
+  const svg = document.getElementById(svgId);
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  // Build color map from current legend types (supports custom types)
+  const colorMap = {};
+  getLegendTypes().forEach(t => { colorMap[t.key] = t.color; });
+
+  // Create arrowhead markers — one helper so we can reuse it
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const coveredMarkers = new Set();
+  function makeMarker(key, hexColor) {
+    if (coveredMarkers.has(key)) return;
+    coveredMarkers.add(key);
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id',           `ah-${svgId}-${key}`);
+    // markerUnits="strokeWidth" makes the arrowhead scale with line thickness automatically
+    marker.setAttribute('markerWidth',  '4');
+    marker.setAttribute('markerHeight', '3');
+    marker.setAttribute('refX',         '0');
+    marker.setAttribute('refY',         '1.5');
+    marker.setAttribute('orient',       'auto');
+    marker.setAttribute('markerUnits',  'strokeWidth');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', '0 0, 4 1.5, 0 3');
+    poly.setAttribute('fill',   hexColor);
+    marker.appendChild(poly);
+    defs.appendChild(marker);
+  }
+  // Markers for all current legend types
+  getLegendTypes().forEach(t => makeMarker(t.key, t.color));
+  // Markers for any rel color keys not covered above (backward compat with old key names)
+  S.rels.forEach(rel => {
+    if (rel.color && !coveredMarkers.has(rel.color)) {
+      makeMarker(rel.color, colorMap[rel.color] || COLOR_HEX[rel.color] || '#888888');
+    }
+  });
+  svg.appendChild(defs);
+
+  const getR = i => (Array.isArray(szOrSizes) ? szOrSizes[i] : szOrSizes) / 2;
+
+  // Shape-aware edge distance: how far the visible boundary is from center in direction (ux, uy).
+  // For circles the answer is always r; for squares the corner sticks out further, so we use
+  // r / max(|ux|, |uy|) which gives the exact distance to whichever face/corner is hit.
+  const getEdgeDist = (i, ux, uy) => {
+    const r = getR(i);
+    const shape = S.nodeShapes && S.people[i] && S.nodeShapes[S.people[i].name];
+    if (shape === 'square') {
+      const mx = Math.max(Math.abs(ux), Math.abs(uy));
+      return r / (mx || 1);
+    }
+    return r;
+  };
+
+  // Thickness map: 1=thin, 2=normal, 3=thick, 4=heavy
+  const THICK_PX = {1: 1.5, 2: 3.5, 3: 5.5, 4: 8};
+
+  // Build a wavy SVG path string between two points.
+  // Sine envelope fades amplitude to 0 at both ends so the path exits
+  // cleanly along the line direction — arrowhead points straight at the target.
+  function wavyPath(x1, y1, x2, y2) {
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy) || 1;
+    const nx = -dy/len, ny = dx/len; // normal
+    const amp = Math.min(len * 0.12, 12);
+    const cycles = Math.max(2, Math.round(len / 35));
+    const segs = cycles * 2;
+    let d = `M ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    for (let i = 0; i < segs; i++) {
+      const t1 = (i + 0.5) / segs;
+      const t2 = (i + 1)   / segs;
+      const sign = (i % 2 === 0) ? 1 : -1;
+      // Envelope: sin(π·t) → 0 at endpoints, 1 at midpoint
+      const env = Math.sin(Math.PI * t1);
+      const cx = x1 + t1*dx + sign*amp*env*nx;
+      const cy = y1 + t1*dy + sign*amp*env*ny;
+      const ex = x1 + t2*dx;
+      const ey = y1 + t2*dy;
+      d += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // Build a zigzag SVG path string between two points.
+  // Sine envelope fades teeth amplitude to 0 at both ends for clean entry/exit.
+  function zigzagPath(x1, y1, x2, y2) {
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy) || 1;
+    const nx = -dy/len, ny = dx/len;
+    const amp = Math.min(len * 0.13, 13);
+    const teeth = Math.max(2, Math.round(len / 30));
+    let d = `M ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    for (let i = 1; i <= teeth; i++) {
+      const t = i / (teeth + 1);
+      const sign = (i % 2 === 0) ? 1 : -1;
+      const env = Math.sin(Math.PI * t);
+      const px = x1 + t*dx + sign*amp*env*nx;
+      const py = y1 + t*dy + sign*amp*env*ny;
+      d += ` L ${px.toFixed(1)} ${py.toFixed(1)}`;
+    }
+    d += ` L ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    return d;
+  }
+
+  S.rels.forEach(rel => {
+    const posA = positions[rel.a];
+    const posB = positions[rel.b];
+    if (!posA || !posB) return;
+
+    const color     = colorMap[rel.color] || COLOR_HEX[rel.color] || '#888888';
+    const dir       = rel.direction      || 'none';
+    const shape     = rel.lineShape      || 'straight';
+    const pattern   = rel.linePattern    || 'solid';
+    const thickness = THICK_PX[rel.lineThickness] || 3.5;
+
+    // stroke-dasharray for pattern
+    const dashArray = pattern === 'dotted' ? `${thickness},${thickness*2}`
+                    : pattern === 'dashed' ? `${thickness*3},${thickness*2}`
+                    : null;
+
+    // Build the path element (use <path> for all shapes for consistency)
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let pathD;
+
+    if (dir !== 'none') {
+      const [srcIdx, tgtIdx] = dir === 'a→b' ? [rel.a, rel.b] : [rel.b, rel.a];
+      const src = positions[srcIdx];
+      const tgt = positions[tgtIdx];
+      const dx  = tgt.x - src.x, dy = tgt.y - src.y;
+      const len = Math.sqrt(dx*dx+dy*dy) || 1;
+      const ux  = dx/len, uy = dy/len;
+      const AH  = 4 * thickness; // scales with stroke width to match the marker
+      // Source end starts at the bubble center — the source bubble (z-index 10, rendered
+      // above the SVG) naturally covers the line up to its visual edge, so the blunt
+      // end always hugs the source shape exactly regardless of its shape or drag angle.
+      const x1  = src.x;
+      const y1  = src.y;
+      const x2  = tgt.x - ux * (getEdgeDist(tgtIdx, ux, uy) + AH);
+      const y2  = tgt.y - uy * (getEdgeDist(tgtIdx, ux, uy) + AH);
+
+      pathD = shape === 'wavy'   ? wavyPath(x1, y1, x2, y2)
+            : shape === 'zigzag' ? zigzagPath(x1, y1, x2, y2)
+            : `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+
+      el.setAttribute('marker-end', `url(#ah-${svgId}-${rel.color})`);
+    } else {
+      const x1 = posA.x, y1 = posA.y, x2 = posB.x, y2 = posB.y;
+      pathD = shape === 'wavy'   ? wavyPath(x1, y1, x2, y2)
+            : shape === 'zigzag' ? zigzagPath(x1, y1, x2, y2)
+            : `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+
+    el.setAttribute('d',              pathD);
+    el.setAttribute('stroke',         color);
+    el.setAttribute('stroke-width',   thickness);
+    el.setAttribute('stroke-linecap', 'round');
+    el.setAttribute('stroke-linejoin','round');
+    el.setAttribute('fill',           'none');
+    if (dashArray) el.setAttribute('stroke-dasharray', dashArray);
+    svg.appendChild(el);
+  });
+}
+
+// ==================== PRO: DRAG NODES ====================
+
+let _dragNode = null, _dragIdx = -1, _dragStartX = 0, _dragStartY = 0;
+let _dragOrigX = 0, _dragOrigY = 0, _dragging = false;
+
+function startNodeDrag(node, idx, clientX, clientY) {
+  _dragNode    = node;
+  _dragIdx     = idx;
+  _dragStartX  = clientX;
+  _dragStartY  = clientY;
+  _dragOrigX   = mapPositions[idx].x;
+  _dragOrigY   = mapPositions[idx].y;
+  _dragging    = false;
+  node.style.transition = 'none';
+}
+
+function moveDragNode(clientX, clientY) {
+  const dx = (clientX - _dragStartX) / S.mapZoom;
+  const dy = (clientY - _dragStartY) / S.mapZoom;
+  if (!_dragging && Math.sqrt(dx*dx+dy*dy) > 5) _dragging = true;
+  if (!_dragging) return;
+  const newX = _dragOrigX + dx;
+  const newY = _dragOrigY + dy;
+  _dragNode.style.left = newX + 'px';
+  _dragNode.style.top  = newY + 'px';
+  mapPositions[_dragIdx] = {x: newX, y: newY};
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
+}
+
+function finishDragNode() {
+  if (!_dragNode) return;
+  _dragNode.style.transition = '';
+  if (_dragging) {
+    S.nodePositions[S.people[_dragIdx].name] = {x: mapPositions[_dragIdx].x, y: mapPositions[_dragIdx].y};
+    saveProject();
+  } else {
+    onNodeClick(_dragIdx);
+  }
+  _dragNode = null; _dragIdx = -1; _dragging = false;
+}
+
+document.addEventListener('mousemove', e => { if (_dragNode) moveDragNode(e.clientX, e.clientY); });
+document.addEventListener('mouseup',   () => { if (_dragNode) finishDragNode(); });
+
+// ==================== PRO: PAN / ZOOM ====================
+
+let _panStart  = null;
+let _pinchDist = 0;
+let _panZoomInited = false;
+
+function initPanZoom(container) {
+  if (_panZoomInited) return;  // only wire once
+  _panZoomInited = true;
+
+  // Scroll-wheel zoom (desktop)
+  container.addEventListener('wheel', e => {
+    if (S.mode !== 'professional') return;
+    e.preventDefault();
+    S.mapZoom = Math.min(3, Math.max(0.3, S.mapZoom * (e.deltaY < 0 ? 1.1 : 0.909)));
+    applyMapTransform();
+  }, {passive: false});
+
+  // Mouse drag on background → pan
+  container.addEventListener('mousedown', e => {
+    if (S.mode !== 'professional') return;
+    if (e.target.classList.contains('node-bubble')) return;
+    _panStart = {x: e.clientX, y: e.clientY, px: S.mapPan.x, py: S.mapPan.y};
+    container.style.cursor = 'grabbing';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!_panStart) return;
+    S.mapPan.x = _panStart.px + e.clientX - _panStart.x;
+    S.mapPan.y = _panStart.py + e.clientY - _panStart.y;
+    applyMapTransform();
+  });
+  document.addEventListener('mouseup', () => {
+    if (_panStart) { _panStart = null; container.style.cursor = ''; }
+  });
+
+  // Touch: pinch zoom + single-finger pan on background
+  container.addEventListener('touchstart', e => {
+    if (S.mode !== 'professional') return;
+    if (e.touches.length === 2) {
+      _pinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY);
+      _panStart = null;
+    } else if (e.touches.length === 1 && !_dragNode) {
+      _panStart = {x: e.touches[0].clientX, y: e.touches[0].clientY, px: S.mapPan.x, py: S.mapPan.y};
+    }
+  }, {passive: true});
+}
+
+// ==================== PRO: BUBBLE COLOR + SHAPE PALETTE ====================
+
+// Apply color + shape styling to a node element
+function applyBubbleStyle(node, name) {
+  const fillCol   = S.bubbleColors[name];
+  const borderCol = S.bubbleBorderColors && S.bubbleBorderColors[name];
+  const shape     = S.nodeShapes[name] || 'circle';
+
+  // Always clear triangle-border state so switching shapes doesn't leave stale class/var
+  node.classList.remove('tri-border');
+  node.style.removeProperty('--tri-fill');
+  node.style.filter = '';
+
+  // Shape geometry
+  if (shape === 'square') {
+    node.style.borderRadius = '14%';
+    node.style.clipPath     = '';
+    node.style.paddingTop   = '';
+  } else if (shape === 'triangle') {
+    node.style.borderRadius = '0';
+    node.style.clipPath     = 'polygon(50% 0%, 100% 90%, 0% 90%)';
+    node.style.border       = 'none'; // CSS border is clipped — handled via ::before
+    node.style.paddingTop   = '';
+  } else { // circle
+    node.style.borderRadius = '50%';
+    node.style.clipPath     = '';
+    node.style.paddingTop   = '';
+  }
+
+  // Text color is always based on the fill color so it contrasts correctly
+  const effectiveFill = fillCol || 'white';
+  node.style.color = isDarkColor(effectiveFill) ? '#fff' : '';
+
+  if (shape === 'triangle') {
+    if (borderCol) {
+      // Triangle border via CSS ::before trick:
+      //  - node background = border color (visible at triangle edges)
+      //  - ::before has slightly-inset clip-path + fill color (covers interior)
+      //  - .bubble-text span z-index:1 keeps text above the ::before layer
+      node.classList.add('tri-border');
+      node.style.background = borderCol;
+      node.style.setProperty('--tri-fill', fillCol || 'white');
+    } else {
+      // No border — just show fill color directly (no ::before needed)
+      node.style.background = fillCol || '';
+    }
+  } else {
+    // Circles and squares: regular background + CSS border
+    node.style.background = fillCol || '';
+    const bColor = borderCol
+      ? borderCol
+      : (fillCol && fillCol !== '#ffffff' ? fillCol : '#8fae8b');
+    node.style.border = `2.5px solid ${bColor}`;
+  }
+}
+
+function showBubblePalette(idx) {
+  const bar = document.getElementById('pro-palette-bar');
+  if (!bar) return;
+  const name      = S.people[idx].name;
+  const curFill   = S.bubbleColors[name]             || '#ffffff';
+  const curBorder = (S.bubbleBorderColors && S.bubbleBorderColors[name]) || null;
+  const curShape  = S.nodeShapes[name]               || 'circle';
+  bar.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'pro-palette';
+
+  // ── Row 1: Fill colour + shape buttons ──
+  const fillRow = document.createElement('div');
+  fillRow.className = 'palette-row';
+  const fillLbl = document.createElement('span');
+  fillLbl.className = 'palette-label';
+  fillLbl.textContent = 'Fill';
+  fillRow.appendChild(fillLbl);
+
+  BUBBLE_PALETTE.forEach(hex => {
+    const sw = document.createElement('div');
+    sw.className = 'cp-swatch fill-sw' + (hex === curFill ? ' active' : '');
+    sw.style.background = hex;
+    sw.dataset.fillHex = hex;
+    sw.onclick = () => setBubbleColor(idx, hex);
+    fillRow.appendChild(sw);
+  });
+
+  const div = document.createElement('div');
+  div.className = 'palette-divider';
+  fillRow.appendChild(div);
+
+  const SHAPES = [
+    { key: 'circle',   svg: `<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="#6d6d65" stroke-width="1.8"/></svg>` },
+    { key: 'square',   svg: `<svg width="16" height="16"><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="#6d6d65" stroke-width="1.8"/></svg>` },
+    { key: 'triangle', svg: `<svg width="16" height="16"><polygon points="8,2 15,14 1,14" fill="none" stroke="#6d6d65" stroke-width="1.8" stroke-linejoin="round"/></svg>` },
+  ];
+  SHAPES.forEach(({ key, svg }) => {
+    const btn = document.createElement('div');
+    btn.className = 'shape-swatch' + (key === curShape ? ' active' : '');
+    btn.dataset.shape = key;
+    btn.innerHTML = svg;
+    btn.onclick = () => setBubbleShape(idx, key);
+    fillRow.appendChild(btn);
+  });
+  wrap.appendChild(fillRow);
+
+  // ── Row 2: Border colour ──
+  const borderRow = document.createElement('div');
+  borderRow.className = 'palette-row';
+  const borderLbl = document.createElement('span');
+  borderLbl.className = 'palette-label';
+  borderLbl.textContent = 'Border';
+  borderRow.appendChild(borderLbl);
+
+  // "Auto" swatch — dashed sage ring, means "no override (match fill or default)"
+  const autoSw = document.createElement('div');
+  autoSw.className = 'cp-swatch border-auto' + (!curBorder ? ' active' : '');
+  autoSw.title = 'Auto (matches fill colour)';
+  autoSw.onclick = () => setBubbleBorderColor(idx, null);
+  borderRow.appendChild(autoSw);
+
+  BUBBLE_PALETTE.forEach(hex => {
+    const sw = document.createElement('div');
+    sw.className = 'cp-swatch border-sw' + (hex === curBorder ? ' active' : '');
+    sw.style.borderColor = hex;
+    sw.style.borderWidth = '3px';
+    sw.dataset.borderHex = hex;
+    sw.onclick = () => setBubbleBorderColor(idx, hex);
+    borderRow.appendChild(sw);
+  });
+  wrap.appendChild(borderRow);
+
+  bar.appendChild(wrap);
+  bar.style.display = 'block';
+}
+
+function hideBubblePalette() {
+  const bar = document.getElementById('pro-palette-bar');
+  if (bar) bar.style.display = 'none';
+}
+
+function setBubbleColor(idx, hex) {
+  const name = S.people[idx].name;
+  S.bubbleColors[name] = hex;
+  document.querySelectorAll('.fill-sw').forEach(sw => {
+    sw.classList.toggle('active', sw.dataset.fillHex === hex);
+  });
+  const node = document.querySelector(`.node-bubble[data-idx="${idx}"]`);
+  if (node) applyBubbleStyle(node, name);
+  saveProject();
+}
+
+function setBubbleBorderColor(idx, hex) {
+  const name = S.people[idx].name;
+  if (!S.bubbleBorderColors) S.bubbleBorderColors = {};
+  if (hex === null) {
+    delete S.bubbleBorderColors[name];
+  } else {
+    S.bubbleBorderColors[name] = hex;
+  }
+  document.querySelectorAll('.border-auto').forEach(sw =>
+    sw.classList.toggle('active', hex === null));
+  document.querySelectorAll('.border-sw').forEach(sw =>
+    sw.classList.toggle('active', sw.dataset.borderHex === hex));
+  const node = document.querySelector(`.node-bubble[data-idx="${idx}"]`);
+  if (node) applyBubbleStyle(node, name);
+  saveProject();
+}
+
+function setBubbleShape(idx, shape) {
+  const name = S.people[idx].name;
+  S.nodeShapes[name] = shape;
+  document.querySelectorAll('.shape-swatch').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.shape === shape));
+  const node = document.querySelector(`.node-bubble[data-idx="${idx}"]`);
+  if (node) applyBubbleStyle(node, name);
+  saveProject();
+}
+
+function rgbToHex(rgb) {
+  const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return rgb;
+  return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
+}
+
+// ==================== PRO: DYNAMIC MAP LEGEND ====================
+
+function renderMapLegend() {
+  const el = document.getElementById('map-legend');
+  if (!el) return;
+  const types = getLegendTypes();
+  let html = types.map(t =>
+    `<div class="legend-row">
+      <div class="legend-dot" style="background:${t.color}"></div>
+      <span>${esc(t.label)}</span>
+    </div>`
+  ).join('');
+  html += `<div class="legend-row">
+    <div class="legend-arrow">
+      <svg width="18" height="11" viewBox="0 0 18 11">
+        <line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/>
+        <polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/>
+      </svg>
+    </div>
+    <span data-i18n="legend_power">${T('legend_power')}</span>
+  </div>`;
+  if (S.mode === 'professional') {
+    html += `<div class="legend-edit-row">
+      <button class="legend-edit-btn" onclick="openLegendEditor()">${T('legend_edit')}</button>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ==================== PRO: LEGEND EDITOR ====================
+
+function openLegendEditor() {
+  // Initialise S.legendTypes from defaults if not yet customised
+  if (!S.legendTypes) S.legendTypes = getLegendTypes().map(t => ({...t}));
+  renderLegendEditor();
+  document.getElementById('legend-overlay').classList.add('open');
+}
+
+function closeLegendEditor() {
+  document.getElementById('legend-overlay').classList.remove('open');
+  renderMapLegend();
+  renderMapNodes();  // redraw so new colors take effect
+  saveProject();
+}
+
+document.getElementById('legend-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeLegendEditor();
+});
+
+function renderLegendEditor() {
+  const list = document.getElementById('legend-types-list');
+  list.innerHTML = '';
+  const types = S.legendTypes || getLegendTypes();
+  const defaults = new Set(['green','yellow','red']);
+
+  types.forEach((type, ti) => {
+    const row = document.createElement('div');
+    row.className = 'legend-type-row';
+
+    // Color dot — opens mini palette
+    const dot = document.createElement('div');
+    dot.className = 'legend-color-dot';
+    dot.style.background = type.color;
+    dot.onclick = () => toggleMiniPalette(ti);
+
+    // Label input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'legend-type-input';
+    input.value = type.label;
+    input.oninput = () => {
+      if (!S.legendTypes) return;
+      S.legendTypes[ti].label = input.value;
+    };
+
+    // Delete button (only for custom types)
+    const del = document.createElement('button');
+    del.className = 'legend-del-btn';
+    del.textContent = '×';
+    del.style.visibility = defaults.has(type.key) ? 'hidden' : 'visible';
+    del.onclick = () => {
+      S.legendTypes.splice(ti, 1);
+      // Remove any rels using this key
+      S.rels = S.rels.filter(r => r.color !== type.key);
+      renderLegendEditor();
+    };
+
+    row.appendChild(dot);
+    row.appendChild(input);
+    row.appendChild(del);
+    list.appendChild(row);
+
+    // Mini palette (hidden by default, toggled by dot click)
+    const palette = document.createElement('div');
+    palette.className = 'legend-mini-palette';
+    palette.id = `lmp-${ti}`;
+    palette.style.display = 'none';
+    REL_PALETTE.forEach(hex => {
+      const sw = document.createElement('div');
+      sw.className = 'legend-mini-swatch' + (hex === type.color ? ' active' : '');
+      sw.style.background = hex;
+      sw.onclick = () => {
+        if (!S.legendTypes) return;
+        S.legendTypes[ti].color = hex;
+        dot.style.background = hex;
+        palette.querySelectorAll('.legend-mini-swatch').forEach(s => s.classList.toggle('active', s.style.background === hex || rgbToHex(s.style.background) === hex));
+        dot.classList.remove('open');
+        palette.style.display = 'none';
+      };
+      palette.appendChild(sw);
+    });
+    list.appendChild(palette);
+  });
+}
+
+function toggleMiniPalette(ti) {
+  const palette = document.getElementById(`lmp-${ti}`);
+  const dot     = palette.previousSibling.querySelector('.legend-color-dot');
+  if (!palette) return;
+  const isOpen = palette.style.display !== 'none';
+  // Close all others
+  document.querySelectorAll('.legend-mini-palette').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.legend-color-dot').forEach(d => d.classList.remove('open'));
+  if (!isOpen) {
+    palette.style.display = 'flex';
+    if (dot) dot.classList.add('open');
+  }
+}
+
+function addCustomLegendType() {
+  if (!S.legendTypes) S.legendTypes = getLegendTypes().map(t => ({...t}));
+  // Derive the next key from existing ones — a plain counter resets on page
+  // reload and minted duplicate keys for reopened projects.
+  const maxN  = S.legendTypes.reduce((m, t) => {
+    const k = /^c(\d+)$/.exec(t.key);
+    return k ? Math.max(m, +k[1]) : m;
+  }, 0);
+  const key   = `c${maxN + 1}`;
+  const color = REL_PALETTE[S.legendTypes.length % REL_PALETTE.length];
+  S.legendTypes.push({key, label: 'Custom Type', color});
+  renderLegendEditor();
+  // Focus the new label input
+  const inputs = document.querySelectorAll('.legend-type-input');
+  if (inputs.length) inputs[inputs.length-1].focus();
+}
+
+// ==================== TOUCH: MAP PAN & NODE DRAG ====================
+
+// Map touchmove — handles scroll prevention + Pro drag + Pro pan/pinch
+document.getElementById('map-container').addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (S.mode !== 'professional') return;
+  if (_dragNode && e.touches.length === 1) {
+    // Node drag
+    moveDragNode(e.touches[0].clientX, e.touches[0].clientY);
+  } else if (e.touches.length === 2) {
+    // Pinch zoom
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY);
+    if (_pinchDist) {
+      S.mapZoom = Math.min(3, Math.max(0.3, S.mapZoom * (dist / _pinchDist)));
+      applyMapTransform();
+    }
+    _pinchDist = dist;
+  } else if (e.touches.length === 1 && _panStart && !_dragNode) {
+    // Pan
+    S.mapPan.x = _panStart.px + e.touches[0].clientX - _panStart.x;
+    S.mapPan.y = _panStart.py + e.touches[0].clientY - _panStart.y;
+    applyMapTransform();
+  }
+}, {passive: false});
+
+document.getElementById('map-container').addEventListener('touchend', e => {
+  if (_dragNode && e.touches.length === 0) finishDragNode();
+  if (e.touches.length < 2) _pinchDist = 0;
+  if (e.touches.length === 0) _panStart = null;
+}, {passive: true});
+
+// Redraw map when window resizes so lines stay anchored to bubbles
+window.addEventListener('resize', () => {
+  if (document.getElementById('s-map').classList.contains('active') && S.people.length > 0) {
+    renderMapNodes();
+  }
+  if (document.getElementById('s-final').classList.contains('active') && S.people.length > 0) {
+    renderFinalMap();
+  }
+});
+
+// ==================== FINAL SCREEN ====================
+
+function goFinal() {
+  S.phase = 'final';
+  saveProject();
+  showScreen('s-final');
+  document.getElementById('final-title-text').textContent = S.situation;
+  setTimeout(renderFinalMap, 100);
+}
+
+function renderFinalMap() {
+  const wrap = document.getElementById('final-map-wrap');
+  const svg  = document.getElementById('final-svg');
+  wrap.querySelectorAll('.node-bubble').forEach(n => n.remove());
+
+  const W      = wrap.clientWidth;
+  const fullH  = wrap.clientHeight;
+  const H      = fullH - 40;  // usable area (leave room for watermark)
+  const n      = S.people.length;
+  const baseSz = baseSize(n);
+  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
+  // Shrink the layout circle if the largest bubble would clip the card edge
+  const maxSz  = Math.max(...S.people.map(getSz));
+  let r        = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
+  r            = Math.max(40, Math.min(r, (Math.min(W, H) - maxSz) / 2 - 8));
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${fullH}`);  // match element exactly — no SVG offset
+  const defaults = circlePositions(n, W / 2, H / 2, r);
+  finalPositions = defaults.map((pos, i) => S.nodePositions[S.people[i].name] || pos);
+
+  S.people.forEach((p, i) => {
+    const sz   = getSz(p);
+    const pos  = finalPositions[i];
+    const node = document.createElement('div');
+    node.className   = 'node-bubble';
+    node.style.left  = pos.x + 'px';
+    node.style.top   = pos.y + 'px';
+    node.style.width = node.style.height = sz + 'px';
+    node.style.fontSize = bubbleFontSize(p.name, sz) + 'px';
+    node.style.cursor   = 'default';
+    const _bspan2 = document.createElement('span');
+    _bspan2.className = 'bubble-text';
+    _bspan2.textContent = p.name;
+    node.appendChild(_bspan2);
+    if (S.mode === 'professional') applyBubbleStyle(node, p.name);
+    wrap.appendChild(node);
+  });
+
+  drawLines('final-svg', finalPositions, S.people.map(p => getSz(p)));
+
+  // Rebuild final legend dynamically from current legend types
+  const finalLegEl = document.getElementById('final-legend');
+  if (finalLegEl) {
+    const powerArrowSVG = `<div class="legend-arrow"><svg width="18" height="11" viewBox="0 0 18 11"><line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/><polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/></svg></div>`;
+    finalLegEl.innerHTML =
+      getLegendTypes().map(t =>
+        `<div class="legend-row"><div class="legend-dot" style="background:${t.color}"></div><span>${esc(t.label)}</span></div>`
+      ).join('') +
+      `<div class="legend-row">${powerArrowSVG}<span data-i18n="legend_power">${T('legend_power')}</span></div>`;
+  }
+
+  // Populate perspectives cards
+  const grid = document.getElementById('perspectives-grid');
+  grid.innerHTML = '';
+  const wantsLbl    = T('perspectives_wants');
+  const misLbl      = T('perspectives_mis');
+  const evidenceLbl = T('perspectives_evidence');
+  const emptyTxt    = T('perspectives_empty');
+  const showEvidence = S.mode === 'professional';
+
+  S.people.forEach(p => {
+    const wants    = (S.wants[p.name] || '').replace('(not specified)', '');
+    const mis      = S.misunderstood[p.name] || '';
+    const evidence = S.evidence[p.name] || '';
+    const initials = p.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+    const evidenceHTML = showEvidence
+      ? '<div class="perspective-field">' +
+          '<div class="perspective-field-label">' + evidenceLbl + '</div>' +
+          '<div class="perspective-field-value' + (evidence ? '' : ' perspective-field-empty') + '">' + (esc(evidence) || emptyTxt) + '</div>' +
+        '</div>'
+      : '';
+
+    const card = document.createElement('div');
+    card.className = 'perspective-card';
+    card.innerHTML =
+      '<div class="perspective-card-header">' +
+        '<div class="perspective-avatar">' + esc(initials) + '</div>' +
+        '<div class="perspective-name">' + esc(p.name) + '</div>' +
+      '</div>' +
+      '<div class="perspective-body">' +
+        '<div class="perspective-field">' +
+          '<div class="perspective-field-label">' + wantsLbl + '</div>' +
+          '<div class="perspective-field-value' + (wants ? '' : ' perspective-field-empty') + '">' + (esc(wants) || emptyTxt) + '</div>' +
+        '</div>' +
+        '<div class="perspective-field">' +
+          '<div class="perspective-field-label">' + misLbl + '</div>' +
+          '<div class="perspective-field-value' + (mis ? '' : ' perspective-field-empty') + '">' + (esc(mis) || emptyTxt) + '</div>' +
+        '</div>' +
+        evidenceHTML +
+      '</div>';
+    grid.appendChild(card);
+  });
+
+  // Restore saved debrief answers for this project
+  [1, 2, 3, 4].forEach(i => {
+    const ta = document.getElementById(`debrief-${i}`);
+    if (ta) ta.value = (S.debrief && S.debrief[`q${i}`]) || '';
+  });
+}
+
+// ==================== SAVE AS IMAGE ====================
+
+function downloadMap() {
+  const wrap = document.getElementById('final-map-wrap');
+  const W    = wrap.clientWidth;
+  const DPR  = Math.min(window.devicePixelRatio || 2, 3);
+  const n    = S.people.length;
+  const sz   = baseSize(n);
+  const PAD  = 16;
+  const getSz   = p => Math.round(sz * (S.bubbleSizes[p.name] || 1.0));
+  const getBRad = p => getSz(p) / 2;
+
+  // ── Helper: measure wrapped text lines without drawing ──
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  function textLines(text, maxW, font) {
+    measureCtx.font = font;
+    const words = (text || '').split(' ');
+    const lines = []; let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (measureCtx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+      else { line = test; }
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // ── Pre-calculate perspectives card heights ──
+  const cardCols = Math.min(n, 2);
+  const cardW    = Math.floor((W - PAD * (cardCols + 1)) / cardCols);
+  const fieldW   = cardW - 24;
+  const bodyFont = '400 11px -apple-system, system-ui, sans-serif';
+  const LH       = 15;
+
+  const canvasShowEvidence = S.mode === 'professional';
+  function cardHeight(p) {
+    const wants = (S.wants[p.name] || '').replace('(not specified)', '') || T('perspectives_empty');
+    const mis   = S.misunderstood[p.name] || T('perspectives_empty');
+    const ev    = canvasShowEvidence ? (S.evidence[p.name] || T('perspectives_empty')) : '';
+    const wLines = textLines(wants, fieldW, bodyFont).length;
+    const mLines = textLines(mis,   fieldW, bodyFont).length;
+    const eLines = canvasShowEvidence ? textLines(ev, fieldW, bodyFont).length : 0;
+    const evidenceH = canvasShowEvidence ? 8 + 12 + eLines * LH : 0;
+    return 40 + 12 + wLines * LH + 8 + 12 + mLines * LH + evidenceH + 14;
+    //     header  label1  wLines  gap  label2  mLines  [evid]  bottom-pad
+  }
+
+  const rows = Math.ceil(n / cardCols);
+  let perspH = PAD + 24 + 10; // top-pad + section heading + gap
+  for (let row = 0; row < rows; row++) {
+    let rowH = 0;
+    for (let col = 0; col < cardCols; col++) {
+      const idx = row * cardCols + col;
+      if (idx < n) rowH = Math.max(rowH, cardHeight(S.people[idx]));
+    }
+    perspH += rowH + 10;
+  }
+  perspH += 24; // bottom watermark area
+
+  const mapH   = Math.round(W * 0.9);
+  const totalH = mapH + perspH;
+
+  // ── Create canvas ──
+  const canvas  = document.createElement('canvas');
+  canvas.width  = W * DPR;
+  canvas.height = totalH * DPR;
+  const ctx     = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // ── MAP SECTION background ──
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, totalH);
+  const grd = ctx.createLinearGradient(0, 0, W, mapH);
+  grd.addColorStop(0, 'rgba(234,242,233,0.55)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, mapH);
+
+  // Title
+  ctx.fillStyle = '#4e9aa4';
+  ctx.font = '700 11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('RELATIONSHIP MAP', W / 2, 14);
+  ctx.fillStyle = '#2e2e2a';
+  ctx.font = '800 18px -apple-system, system-ui, sans-serif';
+  ctx.fillText(S.situation, W / 2, 30);
+
+  // Compute map node layout
+  const areaH  = mapH - 56;
+  const topOff = 52;
+  const rRad   = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
+  let cPos     = circlePositions(n, W / 2, topOff + areaH / 2, rRad);
+  // Mirror the on-screen final map (incl. dragged positions) instead of
+  // always using the default circle; clamp so nothing draws off-canvas.
+  if (finalPositions.length === n) {
+    const wrapH  = wrap.clientHeight - 40;
+    const yShift = (topOff + areaH / 2) - wrapH / 2;
+    cPos = finalPositions.map((p, i) => {
+      const m = getBRad(S.people[i]) + 4;
+      return {
+        x: Math.max(m, Math.min(W - m, p.x)),
+        y: Math.max(topOff + m, Math.min(mapH - m, p.y + yShift)),
+      };
+    });
+  }
+
+  // Build color map from legend types
+  const colorMap = {};
+  getLegendTypes().forEach(t => { colorMap[t.key] = t.color; });
+
+  // Lines
+  const CANVAS_THICK = {1: 1.5, 2: 3.5, 3: 5.5, 4: 8};
+  S.rels.forEach(rel => {
+    const posA = cPos[rel.a], posB = cPos[rel.b];
+    if (!posA || !posB) return;
+    const color  = colorMap[rel.color] || COLOR_HEX[rel.color] || '#888888';
+    const dir    = rel.direction    || 'none';
+    const shape  = rel.lineShape    || 'straight';
+    const sw     = CANVAS_THICK[rel.lineThickness] || 3.5;
+    const pat    = rel.linePattern  || 'solid';
+    const dash   = pat === 'dotted' ? [sw, sw*2]
+                 : pat === 'dashed' ? [sw*3, sw*2]
+                 : [];
+
+    // Helper: draw a path through a series of points using canvas
+    function canvasStrokePath(pts, close) {
+      if (pts.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.lineWidth = sw;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let k = 1; k < pts.length; k++) {
+        if (pts[k].cx !== undefined) {
+          ctx.quadraticCurveTo(pts[k].cx, pts[k].cy, pts[k].x, pts[k].y);
+        } else {
+          ctx.lineTo(pts[k].x, pts[k].y);
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // Build wave or zigzag point list for canvas (sine envelope fades amplitude at both ends)
+    function wavePts(x1, y1, x2, y2) {
+      const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy)||1;
+      const nx=-dy/len, ny=dx/len;
+      const amp=Math.min(len*0.12,12), segs=Math.max(4,Math.round(len/35))*2;
+      const pts=[{x:x1,y:y1}];
+      for (let i=0;i<segs;i++) {
+        const t1=(i+0.5)/segs, t2=(i+1)/segs;
+        const sign=(i%2===0)?1:-1;
+        const env=Math.sin(Math.PI*t1);
+        pts.push({
+          cx:x1+t1*dx+sign*amp*env*nx, cy:y1+t1*dy+sign*amp*env*ny,
+          x:x1+t2*dx, y:y1+t2*dy
+        });
+      }
+      return pts;
+    }
+    function zigPts(x1, y1, x2, y2) {
+      const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy)||1;
+      const nx=-dy/len, ny=dx/len;
+      const amp=Math.min(len*0.13,13), teeth=Math.max(2,Math.round(len/30));
+      const pts=[{x:x1,y:y1}];
+      for (let i=1;i<=teeth;i++) {
+        const t=i/(teeth+1), sign=(i%2===0)?1:-1;
+        const env=Math.sin(Math.PI*t);
+        pts.push({x:x1+t*dx+sign*amp*env*nx, y:y1+t*dy+sign*amp*env*ny});
+      }
+      pts.push({x:x2,y:y2});
+      return pts;
+    }
+
+    if (dir !== 'none') {
+      const [si, ti] = dir === 'a→b' ? [rel.a, rel.b] : [rel.b, rel.a];
+      const src = cPos[si], tgt = cPos[ti];
+      const dx=tgt.x-src.x, dy=tgt.y-src.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+      const ux=dx/len, uy=dy/len;
+      const AH = 4 * sw;
+      const x1=src.x+ux*getBRad(S.people[si]), y1=src.y+uy*getBRad(S.people[si]);
+      const x2=tgt.x-ux*(getBRad(S.people[ti])+AH), y2=tgt.y-uy*(getBRad(S.people[ti])+AH);
+      const endX=tgt.x-ux*getBRad(S.people[ti]), endY=tgt.y-uy*getBRad(S.people[ti]);
+      if (shape !== 'straight') {
+        const pts = shape==='wavy' ? wavePts(x1,y1,x2,y2) : zigPts(x1,y1,x2,y2);
+        canvasStrokePath(pts);
+        // draw arrowhead: with envelope fix path exits along the line, so angle is exact
+        ctx.save(); ctx.fillStyle=color; ctx.setLineDash([]);
+        const angle=Math.atan2(endY-y2, endX-x2); // line direction (correct due to envelope)
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX-AH*Math.cos(angle-Math.PI/6.5), endY-AH*Math.sin(angle-Math.PI/6.5));
+        ctx.lineTo(endX-AH*Math.cos(angle+Math.PI/6.5), endY-AH*Math.sin(angle+Math.PI/6.5));
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      } else {
+        ctx.save(); ctx.setLineDash(dash);
+        canvasSolidArrow(ctx, x1, y1, x2, y2, color, sw);
+        ctx.restore();
+      }
+    } else {
+      if (shape !== 'straight') {
+        const pts = shape==='wavy' ? wavePts(posA.x,posA.y,posB.x,posB.y)
+                                   : zigPts(posA.x,posA.y,posB.x,posB.y);
+        canvasStrokePath(pts);
+      } else {
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(posA.x, posA.y); ctx.lineTo(posB.x, posB.y);
+        ctx.strokeStyle=color; ctx.lineWidth=sw; ctx.lineCap='round';
+        ctx.setLineDash(dash); ctx.stroke();
+        ctx.setLineDash([]); ctx.restore();
+      }
+    }
+  });
+
+  // Bubbles
+  cPos.forEach((pos, i) => {
+    const p = S.people[i], bRad = getBRad(p), bSz = getSz(p);
+    const bubCol    = S.bubbleColors[p.name] || 'white';
+    const bubShape  = (S.nodeShapes && S.nodeShapes[p.name]) || 'circle';
+    const _autoBorder = (bubCol === 'white' || bubCol === '#ffffff') ? '#8fae8b' : bubCol;
+    const bubStroke = (S.bubbleBorderColors && S.bubbleBorderColors[p.name]) || _autoBorder;
+    const textCol   = isDarkColor(bubCol === 'white' ? '#ffffff' : bubCol) ? '#ffffff' : '#2e2e2a';
+    ctx.shadowColor = 'rgba(0,0,0,0.10)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 2;
+
+    if (bubShape === 'square') {
+      const r = bRad * 0.22; // corner radius
+      canvasRoundRect(ctx, pos.x - bRad, pos.y - bRad, bRad*2, bRad*2, r);
+      ctx.fillStyle = bubCol; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      canvasRoundRect(ctx, pos.x - bRad, pos.y - bRad, bRad*2, bRad*2, r);
+      ctx.strokeStyle = bubStroke; ctx.lineWidth = 2.5; ctx.stroke();
+    } else if (bubShape === 'triangle') {
+      const h = bRad * 2;
+      ctx.beginPath();
+      ctx.moveTo(pos.x,              pos.y - bRad * 0.85);
+      ctx.lineTo(pos.x + bRad * 1.1, pos.y + bRad * 0.75);
+      ctx.lineTo(pos.x - bRad * 1.1, pos.y + bRad * 0.75);
+      ctx.closePath();
+      ctx.fillStyle = bubCol; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.beginPath();
+      ctx.moveTo(pos.x,              pos.y - bRad * 0.85);
+      ctx.lineTo(pos.x + bRad * 1.1, pos.y + bRad * 0.75);
+      ctx.lineTo(pos.x - bRad * 1.1, pos.y + bRad * 0.75);
+      ctx.closePath();
+      ctx.strokeStyle = bubStroke; ctx.lineWidth = 2.5; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, bRad, 0, Math.PI*2);
+      ctx.fillStyle = bubCol; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, bRad, 0, Math.PI*2);
+      ctx.strokeStyle = bubStroke; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = textCol; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // For triangle, push text down into the wide base
+    const textOffY = bubShape === 'triangle' ? bRad * 0.2 : 0;
+    canvasWrapText(ctx, p.name, pos.x, pos.y + textOffY, bRad*1.45, bubbleFontSize(p.name, bSz), 14);
+  });
+
+  // Legend — use getLegendTypes() for custom relationship types
+  const legendTypes = getLegendTypes();
+  const legRowCount = legendTypes.length + 1; // +1 for power arrow row
+  const legH = 14 + legRowCount * 20;
+  const legW = 130;
+  const legX = W - legW - 10, legY = mapH - legH - 10;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  canvasRoundRect(ctx, legX, legY, legW, legH, 10); ctx.fill();
+  ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1; ctx.stroke();
+  legendTypes.forEach((type, j) => {
+    const cy = legY + 14 + j*20;
+    ctx.beginPath(); ctx.arc(legX+13, cy, 5.5, 0, Math.PI*2); ctx.fillStyle = type.color; ctx.fill();
+    ctx.fillStyle='#6d6d65'; ctx.font='500 11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(type.label, legX+26, cy);
+  });
+  // Power direction arrow
+  const pcy = legY + 14 + legendTypes.length * 20;
+  ctx.beginPath(); ctx.moveTo(legX+6,pcy); ctx.lineTo(legX+20,pcy);
+  ctx.strokeStyle='#6d6d65'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(legX+20,pcy);
+  ctx.lineTo(legX+16,pcy-3.5); ctx.lineTo(legX+16,pcy+3.5);
+  ctx.closePath(); ctx.fillStyle='#6d6d65'; ctx.fill();
+  ctx.fillStyle='#6d6d65'; ctx.font='500 11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(T('legend_power'), legX+26, pcy);
+
+  // ── PERSPECTIVES SECTION ──
+  ctx.fillStyle = '#eaf2e9';
+  ctx.fillRect(0, mapH, W, perspH);
+
+  // Divider line
+  ctx.strokeStyle = '#c8dcc5'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mapH); ctx.lineTo(W, mapH); ctx.stroke();
+
+  // Section heading
+  let yOff = mapH + PAD;
+  ctx.fillStyle = '#4e9aa4';
+  ctx.font = '700 12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('PERSPECTIVES', PAD, yOff);
+  yOff += 24 + 6;
+
+  // Cards
+  for (let row = 0; row < rows; row++) {
+    let rowH = 0;
+    for (let col = 0; col < cardCols; col++) {
+      const idx = row * cardCols + col;
+      if (idx >= n) break;
+      const p    = S.people[idx];
+      const cH   = cardHeight(p);
+      rowH = Math.max(rowH, cH);
+      const cX   = PAD + col * (cardW + PAD);
+      const cY   = yOff;
+      const wants = (S.wants[p.name] || '').replace('(not specified)', '') || T('perspectives_empty');
+      const mis   = S.misunderstood[p.name] || T('perspectives_empty');
+
+      // Card bg
+      ctx.fillStyle = 'white';
+      canvasRoundRect(ctx, cX, cY, cardW, cH, 8); ctx.fill();
+      ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Header strip
+      ctx.fillStyle = '#eaf2e9';
+      ctx.fillRect(cX+1, cY+1, cardW-2, 30);
+      ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cX, cY+31); ctx.lineTo(cX+cardW, cY+31); ctx.stroke();
+
+      // Avatar
+      const initials = p.name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      ctx.fillStyle = '#8fae8b';
+      ctx.beginPath(); ctx.arc(cX+10+9, cY+15, 9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.font = '700 8px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(initials, cX+19, cY+15);
+
+      // Name
+      ctx.fillStyle = '#2e2e2a';
+      ctx.font = '700 11px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.name, cX+34, cY+15);
+
+      // Fields
+      let fy = cY + 40;
+      const fx = cX + 12;
+
+      // Wants label
+      ctx.fillStyle = '#4e9aa4';
+      ctx.font = '700 8.5px -apple-system, system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.fillText(T('perspectives_wants').toUpperCase(), fx, fy);
+      fy += 12;
+
+      // Wants text
+      const wLines = textLines(wants, fieldW, bodyFont);
+      const isWEmpty = !S.wants[p.name] || S.wants[p.name] === '(not specified)';
+      ctx.fillStyle = isWEmpty ? '#9d9d95' : '#2e2e2a';
+      ctx.font = isWEmpty ? 'italic 11px -apple-system, system-ui, sans-serif' : bodyFont;
+      wLines.forEach(l => { ctx.fillText(l, fx, fy); fy += LH; });
+      fy += 8;
+
+      // Misunderstood label
+      ctx.fillStyle = '#4e9aa4';
+      ctx.font = '700 8.5px -apple-system, system-ui, sans-serif';
+      ctx.fillText(T('perspectives_mis').toUpperCase(), fx, fy);
+      fy += 12;
+
+      // Misunderstood text
+      const mLines = textLines(mis, fieldW, bodyFont);
+      const isMEmpty = !S.misunderstood[p.name];
+      ctx.fillStyle = isMEmpty ? '#9d9d95' : '#2e2e2a';
+      ctx.font = isMEmpty ? 'italic 11px -apple-system, system-ui, sans-serif' : bodyFont;
+      mLines.forEach(l => { ctx.fillText(l, fx, fy); fy += LH; });
+
+      // Evidence label + text (pro mode only)
+      if (canvasShowEvidence) {
+        fy += 8;
+        const ev = S.evidence[p.name] || T('perspectives_empty');
+        ctx.fillStyle = '#4e9aa4';
+        ctx.font = '700 8.5px -apple-system, system-ui, sans-serif';
+        ctx.fillText(T('perspectives_evidence').toUpperCase(), fx, fy);
+        fy += 12;
+        const eLines = textLines(ev, fieldW, bodyFont);
+        const isEEmpty = !S.evidence[p.name];
+        ctx.fillStyle = isEEmpty ? '#9d9d95' : '#2e2e2a';
+        ctx.font = isEEmpty ? 'italic 11px -apple-system, system-ui, sans-serif' : bodyFont;
+        eLines.forEach(l => { ctx.fillText(l, fx, fy); fy += LH; });
+      }
+    }
+    yOff += rowH + 10;
+  }
+
+  // Watermark
+  ctx.fillStyle = 'rgba(143,174,139,0.8)';
+  ctx.font = 'italic 11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('🌿 Untangle', PAD, totalH - 8);
+
+  try {
+    const link = document.createElement('a');
+    link.download = `Untangle — ${S.situation}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (_) {
+    window.open(canvas.toDataURL('image/png'), '_blank');
+  }
+}
+
+function canvasSolidArrow(ctx, x1, y1, x2, y2, color, sw) {
+  sw = sw || 3.5;
+  const headLen = 4 * sw; // matches SVG markerWidth * strokeWidth
+  const angle   = Math.atan2(y2 - y1, x2 - x1);
+  const backX   = x2 - headLen * Math.cos(angle);
+  const backY   = y2 - headLen * Math.sin(angle);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(backX, backY);
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = sw;
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6.5),
+             y2 - headLen * Math.sin(angle - Math.PI / 6.5));
+  ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6.5),
+             y2 - headLen * Math.sin(angle + Math.PI / 6.5));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function canvasWrapText(ctx, text, x, y, maxW, fontSize, lineH) {
+  ctx.font = `700 ${fontSize}px -apple-system, system-ui, sans-serif`;
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else { line = test; }
+  }
+  lines.push(line);
+  const startY = y - ((lines.length - 1) * lineH) / 2;
+  lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineH));
+}
+
+function canvasRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);   ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);   ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);       ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ==================== SAVED PROJECTS ====================
+
+const STORAGE_KEY  = 'untangle_v1';
+const MODE_KEY     = 'untangle_mode';
+
+function selectMode(mode) {
+  S.mode = mode;
+  try { localStorage.setItem(MODE_KEY, mode); } catch (_) {}
+  updateModeBadge();
+  showScreen('s-projects');
+}
+
+function updateModeBadge() {
+  const el = document.getElementById('mode-badge-home');
+  if (!el) return;
+  if (!S.mode) { el.innerHTML = ''; return; }
+  const label = S.mode === 'classroom' ? '🏫 ' + T('landing_classroom') : '🌍 ' + T('landing_professional');
+  const cls   = S.mode === 'classroom' ? 'classroom' : 'professional';
+  el.innerHTML = `<span class="mode-badge ${cls}">${label}</span>`;
+}
+
+function loadProjects() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch (_) { return []; }
+}
+
+function saveProject() {
+  if (!S.projectId) {
+    S.projectId = Date.now();
+    S.createdAt = S.projectId;
+  }
+  const projects = loadProjects();
+  const idx = projects.findIndex(p => p.id === S.projectId);
+  const entry = {
+    id:            S.projectId,
+    createdAt:     S.createdAt,
+    updatedAt:     Date.now(),
+    phase:         S.phase,
+    situation:     S.situation,
+    people:        S.people.slice(),
+    wants:         Object.assign({}, S.wants),
+    misunderstood: Object.assign({}, S.misunderstood),
+    evidence:      Object.assign({}, S.evidence || {}),
+    debrief:       Object.assign({}, S.debrief || {}),
+    rels:          S.rels.slice(),
+    phase2idx:     S.phase2idx,
+    mapScale:      S.mapScale,
+    bubbleSizes:    Object.assign({}, S.bubbleSizes),
+    nodePositions:  Object.assign({}, S.nodePositions),
+    bubbleColors:       Object.assign({}, S.bubbleColors),
+    bubbleBorderColors: Object.assign({}, S.bubbleBorderColors || {}),
+    nodeShapes:     Object.assign({}, S.nodeShapes),
+    legendTypes:    S.legendTypes ? S.legendTypes.map(t=>({...t})) : null,
+  };
+  if (idx >= 0) projects[idx] = entry;
+  else projects.unshift(entry);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (_) {}
+}
+
+function deleteProject(id, e) {
+  e.stopPropagation();
+  // Two-tap confirm: first tap arms the button, second tap (within 2.5s) deletes
+  const btn = e.currentTarget || e.target;
+  if (btn && !btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.textContent = T('confirm_delete');
+    btn.style.color = 'var(--red)';
+    btn.style.opacity = '1';
+    setTimeout(() => {
+      if (btn.isConnected) {
+        delete btn.dataset.armed;
+        btn.textContent = '✕';
+        btn.style.color = '';
+        btn.style.opacity = '';
+      }
+    }, 2500);
+    return;
+  }
+  const projects = loadProjects().filter(p => p.id !== id);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (_) {}
+  renderProjectsList();
+}
+
+function openProject(id) {
+  const proj = loadProjects().find(p => p.id === id);
+  if (!proj) return;
+  S.projectId    = proj.id;
+  S.createdAt    = proj.createdAt;
+  S.phase        = proj.phase || 'start';
+  S.situation    = proj.situation || '';
+  S.people       = proj.people.slice();
+  S.wants        = Object.assign({}, proj.wants);
+  S.misunderstood = Object.assign({}, proj.misunderstood);
+  S.evidence      = Object.assign({}, proj.evidence || {});
+  S.debrief       = Object.assign({}, proj.debrief || {});
+  // Drop any malformed rels (e.g. null endpoints) from older saves
+  S.rels         = (proj.rels || []).filter(r => Number.isInteger(r.a) && Number.isInteger(r.b));
+  S.phase2idx    = proj.phase2idx || 0;
+  S.mapScale     = proj.mapScale || 1.0;
+  S.bubbleSizes     = Object.assign({}, proj.bubbleSizes   || {});
+  S.nodePositions   = Object.assign({}, proj.nodePositions || {});
+  S.bubbleColors       = Object.assign({}, proj.bubbleColors       || {});
+  S.bubbleBorderColors = Object.assign({}, proj.bubbleBorderColors || {});
+  S.nodeShapes         = Object.assign({}, proj.nodeShapes         || {});
+  S.legendTypes     = proj.legendTypes ? proj.legendTypes.map(t=>({...t})) : null;
+  S.mapPan          = {x:0, y:0};
+  S.mapZoom         = 1.0;
+  S.selectedNode = null;
+  S.pendingNode  = null;
+  // Restore phase 1 UI so going back works
+  document.getElementById('situation-input').value = S.situation;
+  renderPills();
+  updateP1Btn();
+  if (proj.phase === 'final') {
+    showScreen('s-final');
+    document.getElementById('final-title-text').textContent = S.situation;
+    setTimeout(renderFinalMap, 100);
+  } else if (proj.phase === 'map') {
+    showScreen('s-map');
+    setTimeout(renderMapNodes, 100);
+  } else if (proj.phase === 'wants') {
+    showScreen('s-wants');
+    renderPhase2();
+  } else {
+    showScreen('s-welcome');
+  }
+}
+
+function newMap() {
+  Object.assign(S, {
+    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
+    phase2idx: 0, selectedNode: null, pendingNode: null,
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
+    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
+  });
+  document.getElementById('situation-input').value   = '';
+  document.getElementById('stakeholder-input').value = '';
+  document.getElementById('bubbles-grid').innerHTML  = '';
+  document.getElementById('btn-p1-next').disabled    = true;
+  document.getElementById('min-hint').style.display  = 'none';
+  showScreen('s-welcome');
+}
+
+function formatProjDate(ts) {
+  let locale = S.lang;
+  try { new Date().toLocaleDateString(locale); } catch (_) { locale = 'en'; }
+  return new Date(ts).toLocaleDateString(
+    locale,
+    { month: 'short', day: 'numeric', year: 'numeric' }
+  );
+}
+
+function phaseLabel(phase) {
+  const key = { start: 'proj_phase_start', wants: 'proj_phase_wants', map: 'proj_phase_map', final: 'proj_phase_final' }[phase] || 'proj_phase_start';
+  return T(key);
+}
+
+function phaseClass(phase) {
+  return { start: 'project-phase-start', wants: 'project-phase-wants', map: 'project-phase-map', final: 'project-phase-final' }[phase] || 'project-phase-start';
+}
+
+function renderProjectsList() {
+  const projects  = loadProjects();
+  const listEl    = document.getElementById('projects-list');
+  const headingEl = document.getElementById('projects-list-heading');
+  if (!listEl) return;
+
+  if (projects.length === 0) {
+    headingEl.style.display = 'none';
+    listEl.innerHTML =
+      '<div class="projects-empty">' +
+        '<div class="projects-empty-icon">🌿</div>' +
+        '<div class="projects-empty-text">' + T('proj_empty_text').replace('\n', '<br>') + '</div>' +
+      '</div>';
+    return;
+  }
+
+  headingEl.style.display = '';
+  headingEl.textContent   = T('proj_your_maps');
+  listEl.innerHTML = '';
+
+  projects.forEach(proj => {
+    const card      = document.createElement('div');
+    card.className  = 'project-card';
+    card.onclick    = () => openProject(proj.id);
+    const situation = proj.situation || 'Untitled Situation';
+    const visible   = proj.people.slice(0, 5);
+    const extra     = proj.people.length - visible.length;
+    const chips     = visible.map(p => `<span class="project-person-chip">${esc(p.name)}</span>`).join('') +
+                      (extra > 0 ? `<span class="project-person-chip">+${extra}</span>` : '');
+
+    card.innerHTML =
+      '<div class="project-card-main">' +
+        '<div class="project-card-situation">' + esc(situation) + '</div>' +
+        '<div class="project-card-meta">' +
+          '<span class="project-phase-badge ' + phaseClass(proj.phase) + '">' + phaseLabel(proj.phase) + '</span>' +
+          '<span class="project-card-date">' + formatProjDate(proj.updatedAt) + '</span>' +
+        '</div>' +
+        '<div class="project-card-people">' + chips + '</div>' +
+      '</div>' +
+      '<button class="project-delete-btn" onclick="deleteProject(' + proj.id + ', event)" aria-label="Delete">✕</button>';
+
+    listEl.appendChild(card);
+  });
+}
+
+// ==================== UTILITIES ====================
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+  applyTranslations();
+  if (id === 's-projects') { updateModeBadge(); renderProjectsList(); }
+}
+
+// ── On page load: restore saved mode, skip landing if already chosen ──
+(function init() {
+  const savedMode = (() => { try { return localStorage.getItem(MODE_KEY); } catch(_) { return null; } })();
+  if (savedMode === 'classroom' || savedMode === 'professional') {
+    S.mode = savedMode;
+    updateModeBadge();
+    showScreen('s-projects');
+  }
+  renderProjectsList();
+})();
+
+function startOver() {
+  Object.assign(S, {
+    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
+    phase2idx: 0, selectedNode: null, pendingNode: null,
+    projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
+    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
+  });
+  document.getElementById('situation-input').value   = '';
+  document.getElementById('stakeholder-input').value = '';
+  document.getElementById('bubbles-grid').innerHTML  = '';
+  document.getElementById('btn-p1-next').disabled    = true;
+  document.getElementById('min-hint').style.display  = 'none';
+  showScreen('s-projects');
+}
+
+</script>
 </body>
 </html>

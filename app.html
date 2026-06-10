@@ -46,7 +46,7 @@
     /* ---- SCREENS ---- */
     .screen {
       display: none; flex-direction: column;
-      min-height: 100vh; min-height: -webkit-fill-available;
+      min-height: 100vh; min-height: 100dvh;
       padding: 0 20px 36px;
       animation: fadeUp 0.35s ease;
     }
@@ -229,6 +229,7 @@
       text-align: center; padding: 5px;
       overflow-wrap: break-word; word-break: normal; line-height: 1.25;
       cursor: pointer; user-select: none; -webkit-user-select: none;
+      pointer-events: auto;
       transform: translate(-50%, -50%);
       transition: transform 0.22s cubic-bezier(0.34, 1.5, 0.64, 1),
                   border-color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -258,8 +259,10 @@
       border-radius: var(--radius-sm); padding: 10px 14px;
       border: 1px solid var(--border);
       backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-      z-index: 20;
+      /* Below bubbles (z 10) and click-through, so it never hides or blocks a character */
+      z-index: 5; pointer-events: none;
     }
+    .map-legend .legend-edit-btn { pointer-events: auto; }
     .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; color: var(--text-soft); padding: 3px 0; }
     .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
     .legend-arrow { width: 18px; height: 11px; flex-shrink: 0; display: flex; align-items: center; }
@@ -267,11 +270,14 @@
     /* ============================================================
        PRO MODE — PAN/ZOOM, DRAG, PALETTES, LEGEND EDITOR
     ============================================================ */
-    #map-viewport { position:absolute; inset:0; transform-origin:center center; will-change:transform; }
+    /* Above the legend (z 5) so characters are never hidden behind it; pointer-events
+       none lets taps on empty map space and the legend's edit button pass through
+       (bubbles re-enable their own pointer-events). */
+    #map-viewport { position:absolute; inset:0; transform-origin:center center; will-change:transform; z-index:6; pointer-events:none; }
 
     /* Bubble color palette (shown in hint bar when bubble selected, Pro only) */
     .pro-palette { display:flex; flex-direction:column; gap:5px; align-items:center; margin-top:8px; }
-    .palette-row { display:flex; gap:6px; align-items:center; }
+    .palette-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; row-gap:5px; justify-content:center; max-width:100%; }
     .palette-label { font-size:10px; font-weight:700; color:var(--text-soft); width:36px; text-align:right; flex-shrink:0; letter-spacing:0.02em; }
     .cp-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2.5px solid transparent;
       box-shadow:0 1px 5px rgba(0,0,0,0.18); transition:transform 0.12s; flex-shrink:0; }
@@ -434,7 +440,7 @@
       margin: 10px 0; box-shadow: 0 8px 32px rgba(0,0,0,0.07);
     }
     .final-watermark { position: absolute; bottom: 10px; left: 14px; font-size: 11px; color: var(--sage); font-style: italic; opacity: 0.75; pointer-events: none; }
-    .final-legend { position: absolute; bottom: 10px; right: 12px; background: rgba(255,255,255,0.92); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); }
+    .final-legend { position: absolute; bottom: 10px; right: 12px; background: rgba(255,255,255,0.92); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); pointer-events: none; }
 
     /* ============================================================
        PROJECTS HOME SCREEN
@@ -868,7 +874,7 @@
   <div class="topbar">
     <button class="back-btn" onclick="backPhase3()" aria-label="Back">‹</button>
     <div class="phase-badge" data-i18n="phase3of3">Phase 3 of 3</div>
-    <button class="edit-people-btn" onclick="backToPhase1()" aria-label="Edit stakeholders">✎ People</button>
+    <button class="edit-people-btn" onclick="backToPhase1()" aria-label="Edit stakeholders" data-i18n="edit_people">✎ People</button>
   </div>
 
   <h2 data-i18n="map_title">Map the Relationships</h2>
@@ -934,22 +940,22 @@
     <div class="debrief-q">
       <div class="debrief-q-label" data-i18n="debrief_q1">Who has the most connections in this web?</div>
       <div class="debrief-starter" id="ds-1" data-i18n="debrief_s1">I notice that ___</div>
-      <textarea data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+      <textarea id="debrief-1" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
     </div>
     <div class="debrief-q">
       <div class="debrief-q-label" data-i18n="debrief_q2">Where might common ground exist between stakeholders?</div>
       <div class="debrief-starter" id="ds-2" data-i18n="debrief_s2">I think ___ because ___</div>
-      <textarea data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+      <textarea id="debrief-2" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
     </div>
     <div class="debrief-q">
       <div class="debrief-q-label" data-i18n="debrief_q3">Who holds the most power? How does that shape the conflict?</div>
       <div class="debrief-starter" id="ds-3" data-i18n="debrief_s3">I wonder if ___</div>
-      <textarea data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+      <textarea id="debrief-3" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
     </div>
     <div class="debrief-q">
       <div class="debrief-q-label" data-i18n="debrief_q4">What surprised you about this map?</div>
       <div class="debrief-starter" id="ds-4" data-i18n="debrief_s4">I was surprised by ___</div>
-      <textarea data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
+      <textarea id="debrief-4" data-i18n-ph="debrief_placeholder" placeholder="Write your thoughts here…"></textarea>
     </div>
   </div>
 
@@ -1082,12 +1088,12 @@
 <div class="overlay" id="legend-overlay">
   <div class="sheet" style="max-height:80vh;overflow-y:auto">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">Edit Legend</div>
+    <div class="sheet-title" data-i18n="legend_editor_title">Edit Legend</div>
     <div class="sp-8"></div>
     <div id="legend-types-list"></div>
-    <button class="legend-add-btn" onclick="addCustomLegendType()">＋ Add Custom Type</button>
+    <button class="legend-add-btn" onclick="addCustomLegendType()" data-i18n="legend_add_custom">＋ Add Custom Type</button>
     <div class="sp-16"></div>
-    <button class="btn btn-primary btn-full" onclick="closeLegendEditor()">Done</button>
+    <button class="btn btn-primary btn-full" onclick="closeLegendEditor()" data-i18n="done">Done</button>
   </div>
 </div>
 
@@ -1193,6 +1199,16 @@ const STRINGS = {
     landing_professional:     'Professional',
     landing_professional_desc:'Full conflict analysis for practitioners and researchers. More detail, more freedom, deeper analysis tools.',
     landing_professional_btn: 'Enter Professional →',
+
+    wants_prompt:         'What does {name} want?',
+    edit_people:          '✎ People',
+    legend_edit:          '✏ Edit Legend',
+    legend_editor_title:  'Edit Legend',
+    legend_add_custom:    '＋ Add Custom Type',
+    resize_hint:          '+/− to resize',
+    dup_name_hint:        'Already on the list',
+    max_people_hint:      'Maximum reached',
+    confirm_delete:       'Sure?',
   },
 
   es: {
@@ -1284,6 +1300,19 @@ const STRINGS = {
     landing_professional:     'Profesional',
     landing_professional_desc:'Análisis completo de conflictos para profesionales e investigadores. Más detalle, más libertad, herramientas de análisis más profundas.',
     landing_professional_btn: 'Entrar como Profesional →',
+
+    wants_prompt:         '¿Qué quiere {name}?',
+    evidence_label:       '¿Cuál es tu evidencia? ¿Cómo lo sabes?',
+    evidence_placeholder: 'Enumera fuentes, observaciones o experiencias que lo respalden…',
+    perspectives_evidence:'Evidencia / cómo lo sabemos',
+    edit_people:          '✎ Personas',
+    legend_edit:          '✏ Editar leyenda',
+    legend_editor_title:  'Editar leyenda',
+    legend_add_custom:    '＋ Agregar tipo personalizado',
+    resize_hint:          '+/− para cambiar tamaño',
+    dup_name_hint:        'Ya está en la lista',
+    max_people_hint:      'Límite alcanzado',
+    confirm_delete:       '¿Seguro?',
   },
 
   pt: {
@@ -1364,6 +1393,19 @@ const STRINGS = {
     landing_professional:     'Profissional',
     landing_professional_desc:'Análise completa de conflitos para profissionais e pesquisadores. Mais detalhes, mais liberdade, ferramentas de análise mais profundas.',
     landing_professional_btn: 'Entrar como Profissional →',
+
+    wants_prompt:         'O que {name} quer?',
+    evidence_label:       'Qual é a sua evidência? Como você sabe?',
+    evidence_placeholder: 'Liste fontes, observações ou experiências que apoiem isso…',
+    perspectives_evidence:'Evidência / como sabemos',
+    edit_people:          '✎ Pessoas',
+    legend_edit:          '✏ Editar legenda',
+    legend_editor_title:  'Editar legenda',
+    legend_add_custom:    '＋ Adicionar tipo personalizado',
+    resize_hint:          '+/− para redimensionar',
+    dup_name_hint:        'Já está na lista',
+    max_people_hint:      'Limite atingido',
+    confirm_delete:       'Tem certeza?',
   },
 
   fr: {
@@ -1444,6 +1486,19 @@ const STRINGS = {
     landing_professional:     'Professionnel',
     landing_professional_desc:'Analyse complète des conflits pour les praticiens et les chercheurs. Plus de détails, plus de liberté, des outils d\'analyse plus approfondis.',
     landing_professional_btn: 'Entrer en mode Professionnel →',
+
+    wants_prompt:         'Que veut {name} ?',
+    evidence_label:       'Quelles sont vos preuves ? Comment le savez-vous ?',
+    evidence_placeholder: 'Indiquez les sources, observations ou expériences qui appuient cela…',
+    perspectives_evidence:'Preuves / comment nous le savons',
+    edit_people:          '✎ Personnes',
+    legend_edit:          '✏ Modifier la légende',
+    legend_editor_title:  'Modifier la légende',
+    legend_add_custom:    '＋ Ajouter un type personnalisé',
+    resize_hint:          '+/− pour redimensionner',
+    dup_name_hint:        'Déjà dans la liste',
+    max_people_hint:      'Limite atteinte',
+    confirm_delete:       'Sûr ?',
   },
 
   de: {
@@ -1524,6 +1579,19 @@ const STRINGS = {
     landing_professional:     'Professionell',
     landing_professional_desc:'Vollständige Konfliktanalyse für Praktiker und Forscher. Mehr Detail, mehr Freiheit, tiefere Analysewerkzeuge.',
     landing_professional_btn: 'Professionell einsteigen →',
+
+    wants_prompt:         'Was will {name}?',
+    evidence_label:       'Was sind deine Belege? Woher weißt du das?',
+    evidence_placeholder: 'Nenne Quellen, Beobachtungen oder Erfahrungen, die das stützen…',
+    perspectives_evidence:'Belege / woher wir es wissen',
+    edit_people:          '✎ Personen',
+    legend_edit:          '✏ Legende bearbeiten',
+    legend_editor_title:  'Legende bearbeiten',
+    legend_add_custom:    '＋ Eigenen Typ hinzufügen',
+    resize_hint:          '+/− zum Skalieren',
+    dup_name_hint:        'Bereits auf der Liste',
+    max_people_hint:      'Maximum erreicht',
+    confirm_delete:       'Sicher?',
   },
 
   ar: {
@@ -1604,6 +1672,19 @@ const STRINGS = {
     landing_professional:     'المحترف',
     landing_professional_desc:'تحليل كامل للنزاعات للممارسين والباحثين. مزيد من التفاصيل، مزيد من الحرية، أدوات تحليل أعمق.',
     landing_professional_btn: 'الدخول كمحترف ←',
+
+    wants_prompt:         'ماذا يريد {name}؟',
+    evidence_label:       'ما هو دليلك؟ كيف تعرف ذلك؟',
+    evidence_placeholder: 'اذكر المصادر أو الملاحظات أو التجارب التي تدعم ذلك…',
+    perspectives_evidence:'الدليل / كيف نعرف',
+    edit_people:          '✎ الأشخاص',
+    legend_edit:          '✏ تعديل مفتاح الخريطة',
+    legend_editor_title:  'تعديل مفتاح الخريطة',
+    legend_add_custom:    '＋ إضافة نوع مخصص',
+    resize_hint:          '+/− لتغيير الحجم',
+    dup_name_hint:        'موجود في القائمة بالفعل',
+    max_people_hint:      'تم بلوغ الحد الأقصى',
+    confirm_delete:       'متأكد؟',
   },
 
   zh: {
@@ -1684,6 +1765,19 @@ const STRINGS = {
     landing_professional:     '专业版',
     landing_professional_desc:'为从业者和研究人员提供的完整冲突分析。更多细节，更多自由，更深入的分析工具。',
     landing_professional_btn: '以专业版进入 →',
+
+    wants_prompt:         '{name}想要什么？',
+    evidence_label:       '你的依据是什么？你怎么知道的？',
+    evidence_placeholder: '列出支持这一点的来源、观察或经历…',
+    perspectives_evidence:'依据 / 我们如何知道',
+    edit_people:          '✎ 人物',
+    legend_edit:          '✏ 编辑图例',
+    legend_editor_title:  '编辑图例',
+    legend_add_custom:    '＋ 添加自定义类型',
+    resize_hint:          '+/− 调整大小',
+    dup_name_hint:        '已在列表中',
+    max_people_hint:      '已达上限',
+    confirm_delete:       '确定？',
   },
 
   sw: {
@@ -1764,6 +1858,19 @@ const STRINGS = {
     landing_professional:     'Kitaalamu',
     landing_professional_desc:'Uchambuzi kamili wa migogoro kwa wataalamu na watafiti. Maelezo zaidi, uhuru zaidi, zana za uchambuzi wa kina.',
     landing_professional_btn: 'Ingia kama Mtaalamu →',
+
+    wants_prompt:         '{name} anataka nini?',
+    evidence_label:       'Ushahidi wako ni nini? Unajuaje?',
+    evidence_placeholder: 'Orodhesha vyanzo, uchunguzi, au uzoefu unaounga mkono hili…',
+    perspectives_evidence:'Ushahidi / tunavyojua',
+    edit_people:          '✎ Watu',
+    legend_edit:          '✏ Hariri ufunguo',
+    legend_editor_title:  'Hariri ufunguo',
+    legend_add_custom:    '＋ Ongeza aina maalum',
+    resize_hint:          '+/− kubadilisha ukubwa',
+    dup_name_hint:        'Tayari yupo kwenye orodha',
+    max_people_hint:      'Kikomo kimefikiwa',
+    confirm_delete:       'Una uhakika?',
   },
 
   ja: {
@@ -1844,11 +1951,30 @@ const STRINGS = {
     landing_professional:     'プロフェッショナル',
     landing_professional_desc:'実践者や研究者のための本格的な対立分析。より詳細に、より自由に、より深い分析ツール。',
     landing_professional_btn: 'プロフェッショナルとして入る →',
+
+    wants_prompt:         '{name}は何を望んでいますか？',
+    evidence_label:       '根拠は何ですか？どうやって知りましたか？',
+    evidence_placeholder: 'これを裏付ける情報源、観察、経験を挙げてください…',
+    perspectives_evidence:'根拠・どうやって知ったか',
+    edit_people:          '✎ 人物',
+    legend_edit:          '✏ 凡例を編集',
+    legend_editor_title:  '凡例を編集',
+    legend_add_custom:    '＋ カスタムタイプを追加',
+    resize_hint:          '+/− でサイズ変更',
+    dup_name_hint:        'すでに追加されています',
+    max_people_hint:      '上限に達しました',
+    confirm_delete:       '削除する？',
   },
 };
 
 function T(key) {
   return (STRINGS[S.lang] && STRINGS[S.lang][key]) || STRINGS.en[key] || key;
+}
+
+// Escape user-entered text before interpolating into innerHTML
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
 function applyTranslations() {
@@ -2005,6 +2131,7 @@ const S = {
   wants:        {},  // name → string
   misunderstood:{},  // name → string
   evidence:     {},  // name → string (pro mode only)
+  debrief:      {},  // q1–q4 → reflection text
   rels:         [],  // [{ a, b, color, direction }]  direction: 'none'|'a→b'|'b→a'
   phase2idx:    0,
   selectedNode: null,
@@ -2157,15 +2284,35 @@ document.getElementById('misunderstood-textarea')
 document.getElementById('evidence-textarea')
   .addEventListener('focus', () => { _lastFocusedTA = 'evidence-textarea'; });
 
+// Debrief answers: track in state as the user types, persist on blur
+[1, 2, 3, 4].forEach(i => {
+  const ta = document.getElementById(`debrief-${i}`);
+  ta.addEventListener('input',  () => { S.debrief[`q${i}`] = ta.value; });
+  ta.addEventListener('change', () => saveProject());
+});
+
+// Briefly show a rejection reason in the hint slot, then restore it
+let _addHintTimer = null;
+function flashAddHint(msg) {
+  const el = document.getElementById('min-hint');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(_addHintTimer);
+  _addHintTimer = setTimeout(() => {
+    el.textContent = T('add_two_hint');
+    updateP1Btn();
+  }, 2000);
+}
+
 function addStakeholder() {
   const inp     = document.getElementById('stakeholder-input');
   const name    = inp.value.trim();
   const maxPpl  = S.mode === 'professional' ? 15 : 9;
   if (!name) return;
   if (S.people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-    inp.select(); return;
+    inp.select(); flashAddHint(T('dup_name_hint')); return;
   }
-  if (S.people.length >= maxPpl) { inp.select(); return; }
+  if (S.people.length >= maxPpl) { inp.select(); flashAddHint(T('max_people_hint')); return; }
   S.people.push({ name });
   inp.value = '';
   inp.focus();
@@ -2175,6 +2322,13 @@ function addStakeholder() {
 
 function removeStakeholder(idx) {
   S.people.splice(idx, 1);
+  // Rels reference people by array index — drop rels touching the removed
+  // person and shift the higher indices down so the rest stay accurate.
+  S.rels = S.rels
+    .filter(r => r.a !== idx && r.b !== idx)
+    .map(r => ({ ...r,
+      a: r.a > idx ? r.a - 1 : r.a,
+      b: r.b > idx ? r.b - 1 : r.b }));
   renderPills();
   updateP1Btn();
 }
@@ -2232,9 +2386,8 @@ let _editingStakeholders = false;
 
 function backToPhase1() {
   _editingStakeholders = true;
-  S.rels = [];
-  S.mapScale = 1.0;
-  S.bubbleSizes = {};
+  // Rels are preserved — removeStakeholder() remaps their indices, so editing
+  // people no longer wipes (or scrambles) the relationship map.
   document.getElementById('situation-input').value = S.situation;
   renderPills();
   updateP1Btn();
@@ -2257,8 +2410,8 @@ function resizeBubbles(dir) {
     // Restore selection after re-render
     S.selectedNode = S.people.findIndex(p => p.name === name);
     refreshNodes();
-    setHint(T('selected_hint').replace('{name}', `<strong>${name}</strong>`) +
-      ' &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">+/− to resize</span>');
+    setHint(esc(T('selected_hint')).replace('{name}', `<strong>${esc(name)}</strong>`) +
+      ` &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">${T('resize_hint')}</span>`);
   } else {
     // No bubble selected — resize all globally
     const GSTEPS = [0.65, 0.8, 1.0, 1.2, 1.4];
@@ -2269,6 +2422,7 @@ function resizeBubbles(dir) {
     S.mapScale = GSTEPS[next];
     renderMapNodes();
   }
+  saveProject();
 }
 
 function goPhase2() {
@@ -2294,13 +2448,8 @@ function goPhase2() {
 
 function renderWantsPrompt() {
   const name = S.people[S.phase2idx]?.name || '';
-  if (S.lang === 'es') {
-    document.getElementById('wants-prompt').innerHTML =
-      `¿Qué quiere <span style="color:var(--teal)">${name}</span>?`;
-  } else {
-    document.getElementById('wants-prompt').innerHTML =
-      `What does <span style="color:var(--teal)">${name}</span> want?`;
-  }
+  document.getElementById('wants-prompt').innerHTML =
+    esc(T('wants_prompt')).replace('{name}', `<span style="color:var(--teal)">${esc(name)}</span>`);
 }
 
 function renderPhase2() {
@@ -2431,6 +2580,13 @@ function baseSize(n) {
   return 44;
 }
 
+// Current pixel size of every bubble (global scale × per-bubble multiplier),
+// in people-array order — the shape drawLines() expects.
+function currentBubbleSizes() {
+  const baseSz = Math.round(baseSize(S.people.length) * S.mapScale);
+  return S.people.map(p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0)));
+}
+
 function bubbleFontSize(name, sz) {
   const area  = sz - 10;
   const chars = name.length;
@@ -2449,9 +2605,12 @@ function renderMapNodes() {
   const W      = container.clientWidth;
   const H      = container.clientHeight;
   const n      = S.people.length;
-  const r      = Math.min(W, H) * (n <= 2 ? 0.26 : n <= 9 ? 0.33 : 0.37);
   const baseSz = Math.round(baseSize(n) * S.mapScale);
   const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
+  // Shrink the layout circle if the largest bubble would clip the container edge
+  const maxSz  = Math.max(...S.people.map(getSz));
+  let r        = Math.min(W, H) * (n <= 2 ? 0.26 : n <= 9 ? 0.33 : 0.37);
+  r            = Math.max(40, Math.min(r, (Math.min(W, H) - maxSz) / 2 - 8));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
@@ -2486,7 +2645,7 @@ function renderMapNodes() {
     viewport.appendChild(node);
   });
 
-  drawLines('rel-svg', mapPositions, S.people.map(p => getSz(p)));
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
   applyMapTransform();
   renderMapLegend();
   initPanZoom(container);
@@ -2496,8 +2655,8 @@ function onNodeClick(idx) {
   if (S.selectedNode === null) {
     S.selectedNode = idx;
     refreshNodes();
-    const hint = T('selected_hint').replace('{name}', `<strong>${S.people[idx].name}</strong>`) +
-      ' &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">+/− to resize</span>';
+    const hint = esc(T('selected_hint')).replace('{name}', `<strong>${esc(S.people[idx].name)}</strong>`) +
+      ` &nbsp;·&nbsp; <span style="font-size:12px;color:var(--text-soft)">${T('resize_hint')}</span>`;
     setHint(hint);
     if (S.mode === 'professional') showBubblePalette(idx);
   } else if (S.selectedNode === idx) {
@@ -2548,11 +2707,15 @@ function openColorModal(nameA, nameB) {
   const choices = document.getElementById('color-choices');
   choices.innerHTML = '';
   choices.classList.remove('has-selection');
+  const DESC_KEYS = { green: 'cooperation_desc', yellow: 'tension_desc', red: 'conflict_desc' };
   getLegendTypes().forEach(type => {
     const div = document.createElement('div');
-    div.className = `color-choice`;
+    const isDefault = type.key in DESC_KEYS;
+    // Default types get their .green/.yellow/.red styling (colored border +
+    // tinted background); custom types get their color as an inline border.
+    div.className = 'color-choice' + (isDefault ? ` ${type.key}` : '');
     div.id = `cc-${type.key}`;
-    div.style.borderColor = 'var(--border)';
+    if (!isDefault) div.style.borderColor = type.color;
     div.onclick = () => selectModalColor(type.key);
     const dot = document.createElement('div');
     dot.className = 'choice-dot';
@@ -2560,11 +2723,18 @@ function openColorModal(nameA, nameB) {
     const emoji = document.createElement('span');
     emoji.className = 'choice-emoji';
     emoji.textContent = CHOICE_EMOJI[type.key] || '●';
+    if (!CHOICE_EMOJI[type.key]) emoji.style.color = type.color;
     const textWrap = document.createElement('div');
     const label = document.createElement('div');
     label.className = 'choice-label';
     label.textContent = type.label;
     textWrap.appendChild(label);
+    if (DESC_KEYS[type.key]) {
+      const sub = document.createElement('div');
+      sub.className = 'choice-sub';
+      sub.textContent = T(DESC_KEYS[type.key]);
+      textWrap.appendChild(sub);
+    }
     div.appendChild(dot);
     div.appendChild(emoji);
     div.appendChild(textWrap);
@@ -2654,7 +2824,7 @@ function selectDir(dir) {
 }
 
 function confirmRelationship() {
-  if (!_modalColor) return;
+  if (!_modalColor || S.selectedNode === null || S.pendingNode === null) return;
   const a = S.selectedNode;
   const b = S.pendingNode;
   S.rels = S.rels.filter(r => !((r.a === a && r.b === b) || (r.a === b && r.b === a)));
@@ -2669,8 +2839,9 @@ function confirmRelationship() {
   S.pendingNode  = null;
   document.getElementById('color-overlay').classList.remove('open');
   refreshNodes();
-  drawLines('rel-svg', mapPositions, baseSize(S.people.length));
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
   setHint(T('tap_to_begin'));
+  saveProject();
 }
 
 function cancelColor() {
@@ -2874,9 +3045,7 @@ function moveDragNode(clientX, clientY) {
   _dragNode.style.left = newX + 'px';
   _dragNode.style.top  = newY + 'px';
   mapPositions[_dragIdx] = {x: newX, y: newY};
-  const baseSz = Math.round(baseSize(S.people.length) * S.mapScale);
-  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
-  drawLines('rel-svg', mapPositions, S.people.map(p => getSz(p)));
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
 }
 
 function finishDragNode() {
@@ -3134,7 +3303,7 @@ function renderMapLegend() {
   let html = types.map(t =>
     `<div class="legend-row">
       <div class="legend-dot" style="background:${t.color}"></div>
-      <span>${t.label}</span>
+      <span>${esc(t.label)}</span>
     </div>`
   ).join('');
   html += `<div class="legend-row">
@@ -3148,7 +3317,7 @@ function renderMapLegend() {
   </div>`;
   if (S.mode === 'professional') {
     html += `<div class="legend-edit-row">
-      <button class="legend-edit-btn" onclick="openLegendEditor()">✏ Edit Legend</button>
+      <button class="legend-edit-btn" onclick="openLegendEditor()">${T('legend_edit')}</button>
     </div>`;
   }
   el.innerHTML = html;
@@ -3167,6 +3336,7 @@ function closeLegendEditor() {
   document.getElementById('legend-overlay').classList.remove('open');
   renderMapLegend();
   renderMapNodes();  // redraw so new colors take effect
+  saveProject();
 }
 
 document.getElementById('legend-overlay').addEventListener('click', function(e) {
@@ -3253,10 +3423,15 @@ function toggleMiniPalette(ti) {
   }
 }
 
-let _customTypeCounter = 0;
 function addCustomLegendType() {
   if (!S.legendTypes) S.legendTypes = getLegendTypes().map(t => ({...t}));
-  const key   = `c${++_customTypeCounter}`;
+  // Derive the next key from existing ones — a plain counter resets on page
+  // reload and minted duplicate keys for reopened projects.
+  const maxN  = S.legendTypes.reduce((m, t) => {
+    const k = /^c(\d+)$/.exec(t.key);
+    return k ? Math.max(m, +k[1]) : m;
+  }, 0);
+  const key   = `c${maxN + 1}`;
   const color = REL_PALETTE[S.legendTypes.length % REL_PALETTE.length];
   S.legendTypes.push({key, label: 'Custom Type', color});
   renderLegendEditor();
@@ -3327,9 +3502,12 @@ function renderFinalMap() {
   const fullH  = wrap.clientHeight;
   const H      = fullH - 40;  // usable area (leave room for watermark)
   const n      = S.people.length;
-  const r      = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
   const baseSz = baseSize(n);
   const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
+  // Shrink the layout circle if the largest bubble would clip the card edge
+  const maxSz  = Math.max(...S.people.map(getSz));
+  let r        = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
+  r            = Math.max(40, Math.min(r, (Math.min(W, H) - maxSz) / 2 - 8));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${fullH}`);  // match element exactly — no SVG offset
   const defaults = circlePositions(n, W / 2, H / 2, r);
@@ -3361,7 +3539,7 @@ function renderFinalMap() {
     const powerArrowSVG = `<div class="legend-arrow"><svg width="18" height="11" viewBox="0 0 18 11"><line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/><polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/></svg></div>`;
     finalLegEl.innerHTML =
       getLegendTypes().map(t =>
-        `<div class="legend-row"><div class="legend-dot" style="background:${t.color}"></div><span>${t.label}</span></div>`
+        `<div class="legend-row"><div class="legend-dot" style="background:${t.color}"></div><span>${esc(t.label)}</span></div>`
       ).join('') +
       `<div class="legend-row">${powerArrowSVG}<span data-i18n="legend_power">${T('legend_power')}</span></div>`;
   }
@@ -3384,7 +3562,7 @@ function renderFinalMap() {
     const evidenceHTML = showEvidence
       ? '<div class="perspective-field">' +
           '<div class="perspective-field-label">' + evidenceLbl + '</div>' +
-          '<div class="perspective-field-value' + (evidence ? '' : ' perspective-field-empty') + '">' + (evidence || emptyTxt) + '</div>' +
+          '<div class="perspective-field-value' + (evidence ? '' : ' perspective-field-empty') + '">' + (esc(evidence) || emptyTxt) + '</div>' +
         '</div>'
       : '';
 
@@ -3392,21 +3570,27 @@ function renderFinalMap() {
     card.className = 'perspective-card';
     card.innerHTML =
       '<div class="perspective-card-header">' +
-        '<div class="perspective-avatar">' + initials + '</div>' +
-        '<div class="perspective-name">' + p.name + '</div>' +
+        '<div class="perspective-avatar">' + esc(initials) + '</div>' +
+        '<div class="perspective-name">' + esc(p.name) + '</div>' +
       '</div>' +
       '<div class="perspective-body">' +
         '<div class="perspective-field">' +
           '<div class="perspective-field-label">' + wantsLbl + '</div>' +
-          '<div class="perspective-field-value' + (wants ? '' : ' perspective-field-empty') + '">' + (wants || emptyTxt) + '</div>' +
+          '<div class="perspective-field-value' + (wants ? '' : ' perspective-field-empty') + '">' + (esc(wants) || emptyTxt) + '</div>' +
         '</div>' +
         '<div class="perspective-field">' +
           '<div class="perspective-field-label">' + misLbl + '</div>' +
-          '<div class="perspective-field-value' + (mis ? '' : ' perspective-field-empty') + '">' + (mis || emptyTxt) + '</div>' +
+          '<div class="perspective-field-value' + (mis ? '' : ' perspective-field-empty') + '">' + (esc(mis) || emptyTxt) + '</div>' +
         '</div>' +
         evidenceHTML +
       '</div>';
     grid.appendChild(card);
+  });
+
+  // Restore saved debrief answers for this project
+  [1, 2, 3, 4].forEach(i => {
+    const ta = document.getElementById(`debrief-${i}`);
+    if (ta) ta.value = (S.debrief && S.debrief[`q${i}`]) || '';
   });
 }
 
@@ -3501,7 +3685,20 @@ function downloadMap() {
   const areaH  = mapH - 56;
   const topOff = 52;
   const rRad   = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
-  const cPos   = circlePositions(n, W / 2, topOff + areaH / 2, rRad);
+  let cPos     = circlePositions(n, W / 2, topOff + areaH / 2, rRad);
+  // Mirror the on-screen final map (incl. dragged positions) instead of
+  // always using the default circle; clamp so nothing draws off-canvas.
+  if (finalPositions.length === n) {
+    const wrapH  = wrap.clientHeight - 40;
+    const yShift = (topOff + areaH / 2) - wrapH / 2;
+    cPos = finalPositions.map((p, i) => {
+      const m = getBRad(S.people[i]) + 4;
+      return {
+        x: Math.max(m, Math.min(W - m, p.x)),
+        y: Math.max(topOff + m, Math.min(mapH - m, p.y + yShift)),
+      };
+    });
+  }
 
   // Build color map from legend types
   const colorMap = {};
@@ -3876,7 +4073,7 @@ function updateModeBadge() {
   const el = document.getElementById('mode-badge-home');
   if (!el) return;
   if (!S.mode) { el.innerHTML = ''; return; }
-  const label = S.mode === 'classroom' ? '🏫 Classroom' : '🌍 Professional';
+  const label = S.mode === 'classroom' ? '🏫 ' + T('landing_classroom') : '🌍 ' + T('landing_professional');
   const cls   = S.mode === 'classroom' ? 'classroom' : 'professional';
   el.innerHTML = `<span class="mode-badge ${cls}">${label}</span>`;
 }
@@ -3903,8 +4100,10 @@ function saveProject() {
     wants:         Object.assign({}, S.wants),
     misunderstood: Object.assign({}, S.misunderstood),
     evidence:      Object.assign({}, S.evidence || {}),
+    debrief:       Object.assign({}, S.debrief || {}),
     rels:          S.rels.slice(),
     phase2idx:     S.phase2idx,
+    mapScale:      S.mapScale,
     bubbleSizes:    Object.assign({}, S.bubbleSizes),
     nodePositions:  Object.assign({}, S.nodePositions),
     bubbleColors:       Object.assign({}, S.bubbleColors),
@@ -3919,6 +4118,23 @@ function saveProject() {
 
 function deleteProject(id, e) {
   e.stopPropagation();
+  // Two-tap confirm: first tap arms the button, second tap (within 2.5s) deletes
+  const btn = e.currentTarget || e.target;
+  if (btn && !btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.textContent = T('confirm_delete');
+    btn.style.color = 'var(--red)';
+    btn.style.opacity = '1';
+    setTimeout(() => {
+      if (btn.isConnected) {
+        delete btn.dataset.armed;
+        btn.textContent = '✕';
+        btn.style.color = '';
+        btn.style.opacity = '';
+      }
+    }, 2500);
+    return;
+  }
   const projects = loadProjects().filter(p => p.id !== id);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (_) {}
   renderProjectsList();
@@ -3935,8 +4151,11 @@ function openProject(id) {
   S.wants        = Object.assign({}, proj.wants);
   S.misunderstood = Object.assign({}, proj.misunderstood);
   S.evidence      = Object.assign({}, proj.evidence || {});
-  S.rels         = proj.rels.slice();
+  S.debrief       = Object.assign({}, proj.debrief || {});
+  // Drop any malformed rels (e.g. null endpoints) from older saves
+  S.rels         = (proj.rels || []).filter(r => Number.isInteger(r.a) && Number.isInteger(r.b));
   S.phase2idx    = proj.phase2idx || 0;
+  S.mapScale     = proj.mapScale || 1.0;
   S.bubbleSizes     = Object.assign({}, proj.bubbleSizes   || {});
   S.nodePositions   = Object.assign({}, proj.nodePositions || {});
   S.bubbleColors       = Object.assign({}, proj.bubbleColors       || {});
@@ -3968,7 +4187,7 @@ function openProject(id) {
 
 function newMap() {
   Object.assign(S, {
-    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, rels: [],
+    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
     projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
     nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
@@ -3982,8 +4201,10 @@ function newMap() {
 }
 
 function formatProjDate(ts) {
+  let locale = S.lang;
+  try { new Date().toLocaleDateString(locale); } catch (_) { locale = 'en'; }
   return new Date(ts).toLocaleDateString(
-    S.lang === 'es' ? 'es' : 'en',
+    locale,
     { month: 'short', day: 'numeric', year: 'numeric' }
   );
 }
@@ -4024,12 +4245,12 @@ function renderProjectsList() {
     const situation = proj.situation || 'Untitled Situation';
     const visible   = proj.people.slice(0, 5);
     const extra     = proj.people.length - visible.length;
-    const chips     = visible.map(p => `<span class="project-person-chip">${p.name}</span>`).join('') +
+    const chips     = visible.map(p => `<span class="project-person-chip">${esc(p.name)}</span>`).join('') +
                       (extra > 0 ? `<span class="project-person-chip">+${extra}</span>` : '');
 
     card.innerHTML =
       '<div class="project-card-main">' +
-        '<div class="project-card-situation">' + situation + '</div>' +
+        '<div class="project-card-situation">' + esc(situation) + '</div>' +
         '<div class="project-card-meta">' +
           '<span class="project-phase-badge ' + phaseClass(proj.phase) + '">' + phaseLabel(proj.phase) + '</span>' +
           '<span class="project-card-date">' + formatProjDate(proj.updatedAt) + '</span>' +
@@ -4049,7 +4270,7 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
   window.scrollTo(0, 0);
   applyTranslations();
-  if (id === 's-projects') renderProjectsList();
+  if (id === 's-projects') { updateModeBadge(); renderProjectsList(); }
 }
 
 // ── On page load: restore saved mode, skip landing if already chosen ──
@@ -4065,12 +4286,11 @@ function showScreen(id) {
 
 function startOver() {
   Object.assign(S, {
-    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, rels: [],
+    situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
     projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
     nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
   });
-  _customTypeCounter = 0;
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
   document.getElementById('bubbles-grid').innerHTML  = '';
