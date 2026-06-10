@@ -4,8 +4,8 @@
   "description": "Untangle — a conflict mapping tool for peacebuilders, educators, and practitioners",
   "private": true,
   "scripts": {
-    "sync": "cp index.html app.html && cp index.html www/index.html && cap sync ios",
-    "ios": "npm run sync && cap open ios"
+    "sync": "cp index.html app.html && cp index.html www/index.html && cp index.html ../Untangle-iOS/Sources/index.html && cap sync ios",
+    "ios": "npm run sync && open ../Untangle-iOS/Untangle.xcodeproj"
   },
   "repository": {
     "type": "git",
