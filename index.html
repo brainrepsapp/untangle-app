@@ -3994,13 +3994,45 @@ function downloadMap() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
   ctx.fillText('🌿 Untangle', PAD, totalH - 8);
 
+  const dataUrl = canvas.toDataURL('image/png');
+
+  // Native iOS wrapper (WKWebView): post the PNG to Swift, which presents the
+  // system share sheet (save to Photos, AirDrop, Messages, etc.). Anchor
+  // downloads are a silent no-op inside a web view.
+  const wkShare = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.sharePNG;
+  if (wkShare) {
+    wkShare.postMessage({ name: `Untangle — ${S.situation}`, data: dataUrl.split(',')[1] });
+    return;
+  }
+
+  // Native app (Capacitor): anchor downloads are a no-op inside the iOS web
+  // view — write the PNG to cache and open the system share sheet instead,
+  // so users can save to Photos, AirDrop, message it, etc.
+  const cap = window.Capacitor;
+  if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
+    (async () => {
+      try {
+        const { Filesystem, Share } = cap.Plugins;
+        const fileName = `untangle-map-${Date.now()}.png`;
+        await Filesystem.writeFile({
+          path: fileName,
+          data: dataUrl.split(',')[1],
+          directory: 'CACHE',
+        });
+        const { uri } = await Filesystem.getUri({ path: fileName, directory: 'CACHE' });
+        await Share.share({ title: `Untangle — ${S.situation}`, files: [uri] });
+      } catch (_) { /* share sheet dismissed — nothing to clean up */ }
+    })();
+    return;
+  }
+
   try {
     const link = document.createElement('a');
     link.download = `Untangle — ${S.situation}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = dataUrl;
     link.click();
   } catch (_) {
-    window.open(canvas.toDataURL('image/png'), '_blank');
+    window.open(dataUrl, '_blank');
   }
 }
 
