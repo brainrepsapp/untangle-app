@@ -199,13 +199,16 @@
     /* ============================================================
        SCREEN 3 — MAP
     ============================================================ */
-    #s-map { background: var(--white); padding-left: 14px; padding-right: 14px; }
+    #s-map { background: var(--white); padding-left: 14px; padding-right: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
     .map-hint-bar {
       background: var(--teal-light); border-radius: var(--radius-sm);
       padding: 11px 16px; text-align: center;
       font-size: 13px; font-weight: 500; color: var(--teal-dark);
-      margin: 4px 0 8px; min-height: 42px;
+      margin: 4px 0 8px;
+      /* Fixed height: the hint text changes (1 line ↔ 2 lines) on select, but the
+         bar must NOT change size or it would resize the map and shift the nodes. */
+      height: 56px; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
@@ -266,6 +269,7 @@
     .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; color: var(--text-soft); padding: 3px 0; }
     .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
     .legend-arrow { width: 18px; height: 11px; flex-shrink: 0; display: flex; align-items: center; }
+    .legend-line { width: 28px; height: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 
     /* ============================================================
        PRO MODE — PAN/ZOOM, DRAG, PALETTES, LEGEND EDITOR
@@ -275,9 +279,13 @@
        (bubbles re-enable their own pointer-events). */
     #map-viewport { position:absolute; inset:0; transform-origin:center center; will-change:transform; z-index:6; pointer-events:none; }
 
-    /* Bubble color palette (shown in hint bar when bubble selected, Pro only) */
+    /* Bubble color palette (Pro only). Reserve a fixed slot so showing/hiding it on
+       select/deselect never resizes the map (which would shift nodes + warp lines). */
+    #pro-palette-bar { min-height: 84px; }
     .pro-palette { display:flex; flex-direction:column; gap:5px; align-items:center; margin-top:8px; }
-    .palette-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; row-gap:5px; justify-content:center; max-width:100%; }
+    /* Single-line rows (predictable height) that scroll horizontally if the swatches
+       overflow a narrow screen — keeps the reserved slot height constant. */
+    .palette-row { display:flex; gap:6px; align-items:center; flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto; overflow-y:hidden; max-width:100%; padding-bottom:2px; }
     .palette-label { font-size:10px; font-weight:700; color:var(--text-soft); width:36px; text-align:right; flex-shrink:0; letter-spacing:0.02em; }
     .cp-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2.5px solid transparent;
       box-shadow:0 1px 5px rgba(0,0,0,0.18); transition:transform 0.12s; flex-shrink:0; }
@@ -293,7 +301,22 @@
     .legend-edit-row { margin-top:5px; text-align:right; }
     .legend-edit-btn { font-size:10px; color:var(--teal); background:none; border:none; cursor:pointer; padding:0; font-family:inherit; font-weight:600; }
 
-    /* Legend editor sheet */
+    /* Legend editor — per-entry style cards (color + shape + pattern + thickness + label) */
+    .legend-edit-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px 12px; margin-bottom:10px; background:#fff; }
+    .lec-top { display:flex; align-items:center; gap:10px; }
+    .lec-preview { width:54px; height:24px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--card); border:1px solid var(--border); border-radius:7px; }
+    .lec-controls { display:flex; flex-wrap:wrap; gap:9px 14px; margin-top:11px; }
+    .lec-group { display:flex; flex-direction:column; gap:5px; }
+    .lec-grp-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-soft); }
+    .lec-grp-items { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+    .lec-color { width:22px; height:22px; border-radius:50%; border:2.5px solid transparent; cursor:pointer; padding:0; flex-shrink:0; transition:transform 0.12s; }
+    .lec-color:active { transform:scale(0.88); }
+    .lec-color.active { border-color:#2e2e2a; }
+    .lec-btn { display:flex; align-items:center; justify-content:center; min-width:36px; height:26px; padding:0 5px; border:1.5px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; transition:all 0.12s; }
+    .lec-btn:active { transform:scale(0.93); }
+    .lec-btn.active { border-color:var(--teal); background:var(--teal-light); }
+
+    /* Legend editor sheet (legacy color-only rows, retained for safety) */
     .legend-type-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
     .legend-color-dot { width:22px; height:22px; border-radius:50%; flex-shrink:0; cursor:pointer; border:2.5px solid var(--border); transition:transform 0.12s; }
     .legend-color-dot:active { transform:scale(0.9); }
@@ -434,13 +457,14 @@
     .final-headline     { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--teal); text-align: center; }
     .final-situation-name { font-size: 22px; font-weight: 800; color: var(--text); text-align: center; line-height: 1.2; }
     .final-map-wrap {
-      position: relative; flex: 1; min-height: 340px;
+      position: relative; flex: 1; min-height: 400px;
       background: white; border-radius: var(--radius);
       border: 1px solid var(--border); overflow: hidden;
       margin: 10px 0; box-shadow: 0 8px 32px rgba(0,0,0,0.07);
     }
     .final-watermark { position: absolute; bottom: 10px; left: 14px; font-size: 11px; color: var(--sage); font-style: italic; opacity: 0.75; pointer-events: none; }
-    .final-legend { position: absolute; bottom: 10px; right: 12px; background: rgba(255,255,255,0.92); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); pointer-events: none; }
+    /* Legend sits below the map card (not on top of it) so the full map is always visible */
+    .final-legend { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 16px; margin: 8px 2px 4px; padding: 9px 14px; background: rgba(255,255,255,0.9); border-radius: var(--radius-sm); border: 1px solid var(--border); }
 
     /* ============================================================
        PROJECTS HOME SCREEN
@@ -922,9 +946,9 @@
 
   <div class="final-map-wrap" id="final-map-wrap">
     <svg class="rel-svg" id="final-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div class="final-legend" id="final-legend"></div>
     <div class="final-watermark">🌿 Untangle</div>
   </div>
+  <div class="final-legend" id="final-legend"></div>
 
   <!-- Perspectives Section -->
   <div class="perspectives-section">
@@ -1062,6 +1086,7 @@
       <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">Français</button>
       <button class="lang-btn" data-lang="de" onclick="setLang('de')">Deutsch</button>
       <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">العربية</button>
+      <button class="lang-btn" data-lang="he" onclick="setLang('he')">עברית</button>
       <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
       <button class="lang-btn" data-lang="sw" onclick="setLang('sw')">Kiswahili</button>
       <button class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
@@ -1965,6 +1990,97 @@ const STRINGS = {
     max_people_hint:      '上限に達しました',
     confirm_delete:       '削除する？',
   },
+
+  he: {
+    the_situation:        'המצב',
+    situation_placeholder:'לדוגמה: משחקי הרעב, מחלוקת על תקציב בית הספר…',
+    who_is_affected:      'מי מושפע?',
+    who_subtext:          'הוסיפו את הדמויות או הקבוצות המעורבות בסכסוך הזה.',
+    add_placeholder:      'תנו שם לדמות או לקבוצה…',
+    next_wants:           'הבא — מה הם רוצים? ←',
+    add_two_hint:         'הוסיפו לפחות 2 אנשים כדי להמשיך ↑',
+    phase2of3:            'שלב 2 מתוך 3',
+    wants_subtext:        'חשבו מעבר למה שהם אומרים בקול — מה הם באמת צריכים?',
+    wants_placeholder:    'תארו את המטרות, הצרכים או המניעים שלהם…',
+    misunderstood_label:  'כיצד הם עשויים להרגיש שלא מבינים אותם?',
+    misunderstood_placeholder: 'מה אחרים עשויים להבין לא נכון לגביהם?',
+    insight_text:         'חשבו: באילו לחצים הם נתונים? מה הכי חשוב להם? ממה הם חוששים לאבד?',
+    next_character:       'הדמות הבאה ←',
+    finish_mapping:       'סיום — מיפוי הקשרים ←',
+    phase3of3:            'שלב 3 מתוך 3',
+    map_title:            'מפו את הקשרים',
+    tap_to_begin:         'הקישו על דמות כלשהי כדי להתחיל לחבר',
+    selected_hint:        '{name} נבחר/ה — כעת הקישו על דמות אחרת',
+    finish_map:           'סיום — הצגת המפה שלי ←',
+    relationship_between: 'מהו הקשר בין',
+    cooperation:          'שיתוף פעולה',
+    cooperation_desc:     'עבודה משותפת לעבר מטרות משותפות',
+    tension:              'מתח',
+    tension_desc:         'מורכב — לא ממש סומכים זה על זה',
+    conflict_word:        'סכסוך',
+    conflict_desc:        'מטרות מנוגדות או חיכוך ישיר',
+    power_dir_label:      'כיוון הכוח (אופציונלי)',
+    power_dir_none:       'אף אחד',
+    modal_save:           'שמירה ←',
+    cancel:               'ביטול',
+    legend_cooperation:   'שיתוף פעולה',
+    legend_tension:       'מתח',
+    legend_conflict:      'סכסוך',
+    legend_power:         'כיוון הכוח',
+    relationship_map:     'מפת קשרים',
+    start_over:           'התחלה מחדש',
+    save_image:           'שמירת המפה כתמונה',
+    analyze_another:      'ניתוח מצב אחר',
+    debrief_title:        'תחקיר',
+    debrief_desc:         'השתמשו בשאלות אלה כדי להנחות חשיבה ודיון.',
+    debrief_q1:           'למי יש הכי הרבה קשרים ברשת הזו?',
+    debrief_q2:           'היכן עשויה להתקיים נקודת מפגש בין בעלי העניין?',
+    debrief_q3:           'למי יש הכי הרבה כוח? כיצד זה מעצב את הסכסוך?',
+    debrief_q4:           'מה הפתיע אתכם במפה הזו?',
+    debrief_placeholder:  'כתבו את מחשבותיכם כאן…',
+    settings_title:       'הגדרות',
+    language_label:       'שפה',
+    done:                 'סיום',
+    supports_section_label: 'תמיכה לשונית',
+    supports_label:       'מבני משפט ובנק מילים',
+    supports_desc:        'פיגומים ללומדי שפה שנייה — מבני משפט, בנק מילים ופותחני תחקיר.',
+    frame_label:          'מבני משפט',
+    wordbank_label:       'בנק מילים — הקישו כדי להוסיף',
+    debrief_s1:           'אני שם/ה לב ש___',
+    debrief_s2:           'אני חושב/ת ש___ כי ___',
+    debrief_s3:           'אני תוהה אם ___',
+    debrief_s4:           'הופתעתי מ___',
+    perspectives_title:   'נקודות מבט',
+    perspectives_wants:   'מה הם רוצים',
+    perspectives_mis:     'מרגישים שלא מבינים אותם',
+    perspectives_evidence:'ראיות / איך אנחנו יודעים',
+    perspectives_empty:   '(לא נכתב)',
+    evidence_label:       'מהן הראיות שלך? איך אתה יודע?',
+    evidence_placeholder: 'פרטו מקורות, תצפיות או חוויות התומכים בכך…',
+    proj_new_map:         'מפה חדשה',
+    proj_your_maps:       'המפות שלך',
+    proj_empty_text:      'המפות שלך יופיעו כאן.\nהקישו על מפה חדשה כדי להתחיל.',
+    proj_phase_start:     'הגדרה',
+    proj_phase_wants:     'נקודות מבט',
+    proj_phase_map:       'מיפוי',
+    proj_phase_final:     'הושלם',
+    landing_sub:              'כלי למיפוי סכסוכים עבור בוני שלום, מחנכים ואנשי מקצוע.',
+    landing_classroom:        'כיתה',
+    landing_classroom_desc:   'מיפוי בעלי עניין פשוט לתלמידים ולמחנכים. שלבים מודרכים, חזותיות נקייה, קל לשימוש בשיעור.',
+    landing_classroom_btn:    'כניסה לכיתה ←',
+    landing_professional:     'מקצועי',
+    landing_professional_desc:'ניתוח סכסוכים מלא לאנשי מקצוע וחוקרים. יותר פירוט, יותר חופש, כלי ניתוח מעמיקים יותר.',
+    landing_professional_btn: 'כניסה כמקצוען ←',
+    wants_prompt:         'מה {name} רוצה?',
+    edit_people:          '✎ אנשים',
+    legend_edit:          '✏ עריכת מקרא',
+    legend_editor_title:  'עריכת מקרא',
+    legend_add_custom:    '＋ הוספת סוג מותאם',
+    resize_hint:          '+/− לשינוי גודל',
+    dup_name_hint:        'כבר ברשימה',
+    max_people_hint:      'הגעת למקסימום',
+    confirm_delete:       'בטוח/ה?',
+  },
 };
 
 function T(key) {
@@ -2019,6 +2135,7 @@ const VOCAB = {
   zh: ['安全', '公平', '尊重', '权力', '信任', '归属感', '认可', '恐惧'],
   sw: ['usalama', 'haki', 'heshima', 'nguvu', 'imani', 'kuhisi mali', 'kutambuliwa', 'hofu'],
   ja: ['安全', '公正', '尊重', '力', '信頼', '帰属', '認識', '恐れ'],
+  he: ['ביטחון', 'הוגנות', 'כבוד', 'כוח', 'אמון', 'שייכות', 'הכרה', 'פחד'],
 };
 
 const FRAMES = {
@@ -2121,6 +2238,17 @@ const FRAMES = {
       '___ のとき、彼らは誤解されていると感じます',
     ],
   },
+  he: {
+    wants: [
+      'הם רוצים ___ כי ___',
+      'המטרה שלהם היא ___',
+      'הם צריכים ___ כדי להרגיש ___',
+    ],
+    mis: [
+      'אחרים חושבים ___, אבל באמת ___',
+      'הם מרגישים שלא מבינים אותם כאשר ___',
+    ],
+  },
 };
 
 // ==================== STATE ====================
@@ -2166,6 +2294,60 @@ const COLOR_HEX = {
 
 let mapPositions   = [];
 let finalPositions = [];
+let finalSizes     = [];
+let mapBox         = { w: 360, h: 380 };  // Phase-3 container size, for faithful final-map framing
+
+// The canonical Phase-3 arrangement: each node's position + pixel size, exactly
+// as the relationship map was last laid out (including dragged positions, global
+// scale, and per-bubble sizes). Used to reproduce that map faithfully on the
+// final screen and in the exported image. Prefers the live layout; reconstructs
+// it (so opening straight to the final screen still works) when unavailable.
+function phase3Layout() {
+  const n = S.people.length;
+  const sizes = currentBubbleSizes();
+  if (mapPositions.length === n &&
+      mapPositions.every(p => p && isFinite(p.x) && isFinite(p.y))) {
+    return { positions: mapPositions.map(p => ({ x: p.x, y: p.y })), sizes,
+             box: { x: 0, y: 0, w: mapBox.w, h: mapBox.h } };
+  }
+  // Fallback: rebuild the default circle in a canonical box, then apply any
+  // saved drags (which live in the same map-container coordinate space).
+  const BW = 360, BH = 380;
+  const baseSz = Math.round(baseSize(n) * S.mapScale);
+  const maxSz  = Math.max(baseSz, ...sizes);
+  let r = Math.min(BW, BH) * (n <= 2 ? 0.26 : n <= 9 ? 0.33 : 0.37);
+  r = Math.max(40, Math.min(r, (Math.min(BW, BH) - maxSz) / 2 - 8));
+  const circ = circlePositions(n, BW / 2, BH / 2, r);
+  const positions = circ.map((pos, i) => S.nodePositions[S.people[i].name] || pos);
+  return { positions, sizes, box: { x: 0, y: 0, w: BW, h: BH } };
+}
+
+// Uniformly scale + center a node layout so it fits entirely within a target
+// rectangle {x,y,w,h}. The fit is computed over `baseBox` (the Phase-3 canvas
+// framing) unioned with every node's extent — so an un-dragged map keeps its
+// exact Phase-3 framing/whitespace, and dragged nodes that stick out simply
+// expand the bounds so nothing is ever clipped.
+function fitLayout(srcPos, srcSizes, area, baseBox) {
+  let minX = baseBox ? baseBox.x : Infinity;
+  let minY = baseBox ? baseBox.y : Infinity;
+  let maxX = baseBox ? baseBox.x + baseBox.w : -Infinity;
+  let maxY = baseBox ? baseBox.y + baseBox.h : -Infinity;
+  srcPos.forEach((p, i) => {
+    const rad = srcSizes[i] / 2;
+    minX = Math.min(minX, p.x - rad); maxX = Math.max(maxX, p.x + rad);
+    minY = Math.min(minY, p.y - rad); maxY = Math.max(maxY, p.y + rad);
+  });
+  const bw = Math.max(1, maxX - minX);
+  const bh = Math.max(1, maxY - minY);
+  const scale = Math.min(area.w / bw, area.h / bh);
+  const offX = area.x + (area.w - bw * scale) / 2 - minX * scale;
+  const offY = area.y + (area.h - bh * scale) / 2 - minY * scale;
+  return {
+    scale,
+    positions: srcPos.map(p => ({ x: p.x * scale + offX, y: p.y * scale + offY })),
+    sizes: srcSizes.map(s => s * scale),
+  };
+}
 
 // Modal state
 let _modalColor         = null;
@@ -2181,7 +2363,7 @@ function closeSettings() { document.getElementById('settings-overlay').classList
 
 function setLang(lang) {
   S.lang = lang;
-  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.dir = (lang === 'ar' || lang === 'he') ? 'rtl' : 'ltr';
   applyTranslations();
 }
 
@@ -2544,11 +2726,39 @@ function isDarkColor(hex) {
 
 function getLegendTypes() {
   if (S.legendTypes) return S.legendTypes;
+  // Defaults are solid/straight/medium so existing maps look unchanged. Legend
+  // entries can carry a full line style (shape, pattern, thickness) for documentation.
   return [
-    {key:'green',  label:T('legend_cooperation'), color:'#5dab6e'},
-    {key:'yellow', label:T('legend_tension'),      color:'#e8b800'},
-    {key:'red',    label:T('legend_conflict'),     color:'#c95542'},
+    {key:'green',  label:T('legend_cooperation'), color:'#5dab6e', lineShape:'straight', linePattern:'solid', lineThickness:2},
+    {key:'yellow', label:T('legend_tension'),      color:'#e8b800', lineShape:'straight', linePattern:'solid', lineThickness:2},
+    {key:'red',    label:T('legend_conflict'),     color:'#c95542', lineShape:'straight', linePattern:'solid', lineThickness:2},
   ];
+}
+
+// Build an inline SVG of a short line drawn in a legend entry's exact style
+// (color + shape + pattern + thickness) — used in the legend, the editor preview,
+// and the map's relationship key so the reader sees the real line, not just a dot.
+const LEGEND_PREVIEW_THICK = {1: 1.4, 2: 2.4, 3: 3.4, 4: 4.6};
+function legendLineSVGMarkup(type, w, h) {
+  w = w || 40; h = h || 16;
+  const color = type.color || '#888';
+  const shape = type.lineShape   || 'straight';
+  const pat   = type.linePattern || 'solid';
+  const tw    = LEGEND_PREVIEW_THICK[type.lineThickness] || 2.4;
+  const dash  = pat === 'dotted' ? `${tw},${tw*2}` : pat === 'dashed' ? `${tw*3},${tw*2}` : '';
+  const y = h/2, x1 = 2, x2 = w-2, amp = h*0.30;
+  let d;
+  if (shape === 'wavy') {
+    const m = (x1+x2)/2;
+    d = `M${x1},${y} Q${(x1+m)/2},${y-amp} ${m},${y} T${x2},${y}`;
+  } else if (shape === 'zigzag') {
+    const s = (x2-x1)/4;
+    d = `M${x1},${y} L${x1+s},${y-amp} L${x1+2*s},${y+amp} L${x1+3*s},${y-amp} L${x2},${y}`;
+  } else {
+    d = `M${x1},${y} L${x2},${y}`;
+  }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;flex-shrink:0">`
+    + `<path d="${d}" stroke="${color}" stroke-width="${tw}" fill="none" stroke-linecap="round" stroke-linejoin="round"${dash?` stroke-dasharray="${dash}"`:''}/></svg>`;
 }
 
 function applyMapTransform() {
@@ -2596,14 +2806,32 @@ function bubbleFontSize(name, sz) {
   return Math.min(9, Math.floor(area / 7));
 }
 
+// Keep the Pro palette's slot reserved (constant height) so selecting/deselecting a
+// node never resizes the map container — which is what shifts nodes and warps lines.
+function ensurePaletteSlot() {
+  const bar = document.getElementById('pro-palette-bar');
+  if (!bar) return;
+  if (S.mode === 'professional') {
+    bar.style.display = 'block';                 // slot height held by CSS min-height
+    if (S.selectedNode === null) bar.innerHTML = '';
+  } else {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+  }
+}
+
 function renderMapNodes() {
   const container = document.getElementById('map-container');
   const viewport  = document.getElementById('map-viewport');
   const svg       = document.getElementById('rel-svg');
   viewport.querySelectorAll('.node-bubble').forEach(n => n.remove());
 
+  // Reserve the palette slot BEFORE measuring, so the map lays out at its stable size.
+  ensurePaletteSlot();
+
   const W      = container.clientWidth;
   const H      = container.clientHeight;
+  if (!W || !H) return;  // container not visible/measured yet — don't clobber mapBox/positions
   const n      = S.people.length;
   const baseSz = Math.round(baseSize(n) * S.mapScale);
   const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
@@ -2617,6 +2845,7 @@ function renderMapNodes() {
   // Use saved (dragged) positions if available, else default circle layout
   const defaults = circlePositions(n, W / 2, H / 2, r);
   mapPositions = defaults.map((pos, i) => S.nodePositions[S.people[i].name] || pos);
+  mapBox = { w: W, h: H };  // remember the Phase-3 framing so the final map can reproduce it
 
   S.people.forEach((p, i) => {
     const sz  = getSz(p);
@@ -3247,7 +3476,10 @@ function showBubblePalette(idx) {
 
 function hideBubblePalette() {
   const bar = document.getElementById('pro-palette-bar');
-  if (bar) bar.style.display = 'none';
+  if (!bar) return;
+  // In Pro, keep the (now empty) slot reserved so the map doesn't resize on deselect.
+  bar.innerHTML = '';
+  bar.style.display = S.mode === 'professional' ? 'block' : 'none';
 }
 
 function setBubbleColor(idx, hex) {
@@ -3285,6 +3517,10 @@ function setBubbleShape(idx, shape) {
     btn.classList.toggle('active', btn.dataset.shape === shape));
   const node = document.querySelector(`.node-bubble[data-idx="${idx}"]`);
   if (node) applyBubbleStyle(node, name);
+  // Shape changes the node's edge geometry, so directional-arrow endpoints must be
+  // recomputed. Redraw the lines now (using the existing fixed node positions, so
+  // nothing moves) instead of waiting for the next render.
+  drawLines('rel-svg', mapPositions, currentBubbleSizes());
   saveProject();
 }
 
@@ -3302,7 +3538,7 @@ function renderMapLegend() {
   const types = getLegendTypes();
   let html = types.map(t =>
     `<div class="legend-row">
-      <div class="legend-dot" style="background:${t.color}"></div>
+      <div class="legend-line">${legendLineSVGMarkup(t, 28, 13)}</div>
       <span>${esc(t.label)}</span>
     </div>`
   ).join('');
@@ -3343,84 +3579,108 @@ document.getElementById('legend-overlay').addEventListener('click', function(e) 
   if (e.target === this) closeLegendEditor();
 });
 
+const LEGEND_SHAPES   = [['straight','Straight'], ['wavy','Wavy'], ['zigzag','Zigzag']];
+const LEGEND_PATTERNS = [['solid','Solid'], ['dotted','Dotted'], ['dashed','Dashed']];
+const LEGEND_THICKS   = [1, 2, 3, 4];
+
 function renderLegendEditor() {
   const list = document.getElementById('legend-types-list');
   list.innerHTML = '';
-  const types = S.legendTypes || getLegendTypes();
+  if (!S.legendTypes) S.legendTypes = getLegendTypes().map(t => ({...t}));
+  const types = S.legendTypes;
   const defaults = new Set(['green','yellow','red']);
 
   types.forEach((type, ti) => {
-    const row = document.createElement('div');
-    row.className = 'legend-type-row';
+    // Ensure full-style fields exist (older saves only had color)
+    type.lineShape     = type.lineShape     || 'straight';
+    type.linePattern   = type.linePattern   || 'solid';
+    type.lineThickness = type.lineThickness || 2;
 
-    // Color dot — opens mini palette
-    const dot = document.createElement('div');
-    dot.className = 'legend-color-dot';
-    dot.style.background = type.color;
-    dot.onclick = () => toggleMiniPalette(ti);
+    const card = document.createElement('div');
+    card.className = 'legend-edit-card';
 
-    // Label input
+    // ── Top: live preview + label + delete ──
+    const top = document.createElement('div');
+    top.className = 'lec-top';
+    const preview = document.createElement('div');
+    preview.className = 'lec-preview';
+    preview.innerHTML = legendLineSVGMarkup(type, 46, 18);
+    const refresh = () => { preview.innerHTML = legendLineSVGMarkup(type, 46, 18); };
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'legend-type-input';
     input.value = type.label;
-    input.oninput = () => {
-      if (!S.legendTypes) return;
-      S.legendTypes[ti].label = input.value;
-    };
+    input.placeholder = 'Label (e.g. Conflict)';
+    input.oninput = () => { type.label = input.value; };
 
-    // Delete button (only for custom types)
     const del = document.createElement('button');
     del.className = 'legend-del-btn';
     del.textContent = '×';
     del.style.visibility = defaults.has(type.key) ? 'hidden' : 'visible';
     del.onclick = () => {
       S.legendTypes.splice(ti, 1);
-      // Remove any rels using this key
-      S.rels = S.rels.filter(r => r.color !== type.key);
+      S.rels = S.rels.filter(r => r.color !== type.key);  // drop rels using this key
       renderLegendEditor();
     };
+    top.append(preview, input, del);
+    card.appendChild(top);
 
-    row.appendChild(dot);
-    row.appendChild(input);
-    row.appendChild(del);
-    list.appendChild(row);
+    // ── Style controls ──
+    const controls = document.createElement('div');
+    controls.className = 'lec-controls';
+    const makeGroup = (label) => {
+      const g = document.createElement('div'); g.className = 'lec-group';
+      g.innerHTML = `<span class="lec-grp-label">${label}</span>`;
+      const items = document.createElement('div'); items.className = 'lec-grp-items';
+      g.appendChild(items); controls.appendChild(g);
+      return items;
+    };
+    const setActive = (container, btn, cls) =>
+      container.querySelectorAll('.' + cls).forEach(b => b.classList.toggle('active', b === btn));
 
-    // Mini palette (hidden by default, toggled by dot click)
-    const palette = document.createElement('div');
-    palette.className = 'legend-mini-palette';
-    palette.id = `lmp-${ti}`;
-    palette.style.display = 'none';
+    // Color (retains existing color functionality)
+    const colorItems = makeGroup('Color');
     REL_PALETTE.forEach(hex => {
-      const sw = document.createElement('div');
-      sw.className = 'legend-mini-swatch' + (hex === type.color ? ' active' : '');
+      const sw = document.createElement('button');
+      sw.className = 'lec-color' + (hex === type.color ? ' active' : '');
       sw.style.background = hex;
-      sw.onclick = () => {
-        if (!S.legendTypes) return;
-        S.legendTypes[ti].color = hex;
-        dot.style.background = hex;
-        palette.querySelectorAll('.legend-mini-swatch').forEach(s => s.classList.toggle('active', s.style.background === hex || rgbToHex(s.style.background) === hex));
-        dot.classList.remove('open');
-        palette.style.display = 'none';
-      };
-      palette.appendChild(sw);
+      sw.onclick = () => { type.color = hex; setActive(colorItems, sw, 'lec-color'); refresh(); };
+      colorItems.appendChild(sw);
     });
-    list.appendChild(palette);
-  });
-}
+    // Shape
+    const shapeItems = makeGroup('Shape');
+    LEGEND_SHAPES.forEach(([key, name]) => {
+      const b = document.createElement('button');
+      b.className = 'lec-btn' + (type.lineShape === key ? ' active' : '');
+      b.title = name;
+      b.innerHTML = legendLineSVGMarkup({color:'#6d6d65', lineShape:key, linePattern:'solid', lineThickness:2}, 30, 14);
+      b.onclick = () => { type.lineShape = key; setActive(shapeItems, b, 'lec-btn'); refresh(); };
+      shapeItems.appendChild(b);
+    });
+    // Pattern (consistency)
+    const patItems = makeGroup('Line');
+    LEGEND_PATTERNS.forEach(([key, name]) => {
+      const b = document.createElement('button');
+      b.className = 'lec-btn' + (type.linePattern === key ? ' active' : '');
+      b.title = name;
+      b.innerHTML = legendLineSVGMarkup({color:'#6d6d65', lineShape:'straight', linePattern:key, lineThickness:2}, 30, 14);
+      b.onclick = () => { type.linePattern = key; setActive(patItems, b, 'lec-btn'); refresh(); };
+      patItems.appendChild(b);
+    });
+    // Thickness (consistency)
+    const thickItems = makeGroup('Weight');
+    LEGEND_THICKS.forEach(tk => {
+      const b = document.createElement('button');
+      b.className = 'lec-btn' + (type.lineThickness === tk ? ' active' : '');
+      b.innerHTML = legendLineSVGMarkup({color:'#6d6d65', lineShape:'straight', linePattern:'solid', lineThickness:tk}, 30, 14);
+      b.onclick = () => { type.lineThickness = tk; setActive(thickItems, b, 'lec-btn'); refresh(); };
+      thickItems.appendChild(b);
+    });
 
-function toggleMiniPalette(ti) {
-  const palette = document.getElementById(`lmp-${ti}`);
-  const dot     = palette.previousSibling.querySelector('.legend-color-dot');
-  if (!palette) return;
-  const isOpen = palette.style.display !== 'none';
-  // Close all others
-  document.querySelectorAll('.legend-mini-palette').forEach(p => p.style.display = 'none');
-  document.querySelectorAll('.legend-color-dot').forEach(d => d.classList.remove('open'));
-  if (!isOpen) {
-    palette.style.display = 'flex';
-    if (dot) dot.classList.add('open');
-  }
+    card.appendChild(controls);
+    list.appendChild(card);
+  });
 }
 
 function addCustomLegendType() {
@@ -3433,7 +3693,7 @@ function addCustomLegendType() {
   }, 0);
   const key   = `c${maxN + 1}`;
   const color = REL_PALETTE[S.legendTypes.length % REL_PALETTE.length];
-  S.legendTypes.push({key, label: 'Custom Type', color});
+  S.legendTypes.push({key, label: 'Custom Type', color, lineShape:'straight', linePattern:'solid', lineThickness:2});
   renderLegendEditor();
   // Focus the new label input
   const inputs = document.querySelectorAll('.legend-type-input');
@@ -3444,13 +3704,16 @@ function addCustomLegendType() {
 
 // Map touchmove — handles scroll prevention + Pro drag + Pro pan/pinch
 document.getElementById('map-container').addEventListener('touchmove', e => {
-  e.preventDefault();
+  // Classroom mode has no map gestures, so never swallow the touch — the page
+  // must stay scrollable so the Finish button below the map is always reachable.
   if (S.mode !== 'professional') return;
   if (_dragNode && e.touches.length === 1) {
     // Node drag
+    e.preventDefault();
     moveDragNode(e.touches[0].clientX, e.touches[0].clientY);
   } else if (e.touches.length === 2) {
     // Pinch zoom
+    e.preventDefault();
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY);
@@ -3461,6 +3724,7 @@ document.getElementById('map-container').addEventListener('touchmove', e => {
     _pinchDist = dist;
   } else if (e.touches.length === 1 && _panStart && !_dragNode) {
     // Pan
+    e.preventDefault();
     S.mapPan.x = _panStart.px + e.touches[0].clientX - _panStart.x;
     S.mapPan.y = _panStart.py + e.touches[0].clientY - _panStart.y;
     applyMapTransform();
@@ -3500,38 +3764,41 @@ function renderFinalMap() {
 
   const W      = wrap.clientWidth;
   const fullH  = wrap.clientHeight;
-  const H      = fullH - 40;  // usable area (leave room for watermark)
   const n      = S.people.length;
-  const baseSz = baseSize(n);
-  const getSz  = p => Math.round(baseSz * (S.bubbleSizes[p.name] || 1.0));
-  // Shrink the layout circle if the largest bubble would clip the card edge
-  const maxSz  = Math.max(...S.people.map(getSz));
-  let r        = Math.min(W, H) * (n <= 2 ? 0.26 : 0.33);
-  r            = Math.max(40, Math.min(r, (Math.min(W, H) - maxSz) / 2 - 8));
 
-  svg.setAttribute('viewBox', `0 0 ${W} ${fullH}`);  // match element exactly — no SVG offset
-  const defaults = circlePositions(n, W / 2, H / 2, r);
-  finalPositions = defaults.map((pos, i) => S.nodePositions[S.people[i].name] || pos);
+  if (n > 0) {
+    // Reproduce the Phase-3 map exactly, then scale it to fit the card so the
+    // whole thing is visible — no clipping, regardless of drags/zoom in Pro mode.
+    const PAD    = 18;
+    const BOTTOM = 22;  // keep clear of the watermark
+    const src = phase3Layout();
+    const fit = fitLayout(src.positions, src.sizes,
+      { x: PAD, y: PAD, w: W - PAD * 2, h: fullH - PAD - BOTTOM }, src.box);
+    finalPositions = fit.positions;
+    finalSizes     = fit.sizes;
 
-  S.people.forEach((p, i) => {
-    const sz   = getSz(p);
-    const pos  = finalPositions[i];
-    const node = document.createElement('div');
-    node.className   = 'node-bubble';
-    node.style.left  = pos.x + 'px';
-    node.style.top   = pos.y + 'px';
-    node.style.width = node.style.height = sz + 'px';
-    node.style.fontSize = bubbleFontSize(p.name, sz) + 'px';
-    node.style.cursor   = 'default';
-    const _bspan2 = document.createElement('span');
-    _bspan2.className = 'bubble-text';
-    _bspan2.textContent = p.name;
-    node.appendChild(_bspan2);
-    if (S.mode === 'professional') applyBubbleStyle(node, p.name);
-    wrap.appendChild(node);
-  });
+    svg.setAttribute('viewBox', `0 0 ${W} ${fullH}`);  // match element exactly — no SVG offset
 
-  drawLines('final-svg', finalPositions, S.people.map(p => getSz(p)));
+    S.people.forEach((p, i) => {
+      const sz   = finalSizes[i];
+      const pos  = finalPositions[i];
+      const node = document.createElement('div');
+      node.className   = 'node-bubble';
+      node.style.left  = pos.x + 'px';
+      node.style.top   = pos.y + 'px';
+      node.style.width = node.style.height = sz + 'px';
+      node.style.fontSize = bubbleFontSize(p.name, sz) + 'px';
+      node.style.cursor   = 'default';
+      const _bspan2 = document.createElement('span');
+      _bspan2.className = 'bubble-text';
+      _bspan2.textContent = p.name;
+      node.appendChild(_bspan2);
+      if (S.mode === 'professional') applyBubbleStyle(node, p.name);
+      wrap.appendChild(node);
+    });
+
+    drawLines('final-svg', finalPositions, finalSizes);
+  }
 
   // Rebuild final legend dynamically from current legend types
   const finalLegEl = document.getElementById('final-legend');
@@ -3539,7 +3806,7 @@ function renderFinalMap() {
     const powerArrowSVG = `<div class="legend-arrow"><svg width="18" height="11" viewBox="0 0 18 11"><line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/><polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/></svg></div>`;
     finalLegEl.innerHTML =
       getLegendTypes().map(t =>
-        `<div class="legend-row"><div class="legend-dot" style="background:${t.color}"></div><span>${esc(t.label)}</span></div>`
+        `<div class="legend-row"><div class="legend-line">${legendLineSVGMarkup(t, 28, 13)}</div><span>${esc(t.label)}</span></div>`
       ).join('') +
       `<div class="legend-row">${powerArrowSVG}<span data-i18n="legend_power">${T('legend_power')}</span></div>`;
   }
@@ -3601,10 +3868,27 @@ function downloadMap() {
   const W    = wrap.clientWidth;
   const DPR  = Math.min(window.devicePixelRatio || 2, 3);
   const n    = S.people.length;
-  const sz   = baseSize(n);
   const PAD  = 16;
-  const getSz   = p => Math.round(sz * (S.bubbleSizes[p.name] || 1.0));
-  const getBRad = p => getSz(p) / 2;
+
+  // Fit the canonical Phase-3 layout into the canvas map area — same transform
+  // the on-screen final map uses, so the exported image matches it exactly.
+  const mapH   = Math.round(W * 0.9);
+  const topOff = 52;
+  // Reserve a short bottom strip for a horizontal legend bar so no node is ever
+  // drawn under it (kept compact so the map stays large/readable).
+  const _legBandH = 50;
+  const areaH  = mapH - 56 - _legBandH;
+  const _src   = phase3Layout();
+  const _fit   = n > 0
+    ? fitLayout(_src.positions, _src.sizes, { x: PAD, y: topOff, w: W - PAD * 2, h: areaH }, _src.box)
+    : { positions: [], sizes: [] };
+  const cPos    = _fit.positions;
+  const _sizeOf = name => {
+    const i = S.people.findIndex(p => p.name === name);
+    return (i >= 0 && _fit.sizes[i]) || baseSize(n);
+  };
+  const getSz   = p => _sizeOf(p.name);
+  const getBRad = p => _sizeOf(p.name) / 2;
 
   // ── Helper: measure wrapped text lines without drawing ──
   const measureCtx = document.createElement('canvas').getContext('2d');
@@ -3653,7 +3937,6 @@ function downloadMap() {
   }
   perspH += 24; // bottom watermark area
 
-  const mapH   = Math.round(W * 0.9);
   const totalH = mapH + perspH;
 
   // ── Create canvas ──
@@ -3681,24 +3964,7 @@ function downloadMap() {
   ctx.font = '800 18px -apple-system, system-ui, sans-serif';
   ctx.fillText(S.situation, W / 2, 30);
 
-  // Compute map node layout
-  const areaH  = mapH - 56;
-  const topOff = 52;
-  const rRad   = Math.min(W, areaH) * (n <= 2 ? 0.26 : 0.33);
-  let cPos     = circlePositions(n, W / 2, topOff + areaH / 2, rRad);
-  // Mirror the on-screen final map (incl. dragged positions) instead of
-  // always using the default circle; clamp so nothing draws off-canvas.
-  if (finalPositions.length === n) {
-    const wrapH  = wrap.clientHeight - 40;
-    const yShift = (topOff + areaH / 2) - wrapH / 2;
-    cPos = finalPositions.map((p, i) => {
-      const m = getBRad(S.people[i]) + 4;
-      return {
-        x: Math.max(m, Math.min(W - m, p.x)),
-        y: Math.max(topOff + m, Math.min(mapH - m, p.y + yShift)),
-      };
-    });
-  }
+  // Map node layout (cPos) was fit to the canvas area at the top of this function.
 
   // Build color map from legend types
   const colorMap = {};
@@ -3857,30 +4123,42 @@ function downloadMap() {
     canvasWrapText(ctx, p.name, pos.x, pos.y + textOffY, bRad*1.45, bubbleFontSize(p.name, bSz), 14);
   });
 
-  // Legend — use getLegendTypes() for custom relationship types
-  const legendTypes = getLegendTypes();
-  const legRowCount = legendTypes.length + 1; // +1 for power arrow row
-  const legH = 14 + legRowCount * 20;
-  const legW = 130;
-  const legX = W - legW - 10, legY = mapH - legH - 10;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  canvasRoundRect(ctx, legX, legY, legW, legH, 10); ctx.fill();
-  ctx.strokeStyle = '#e2ddd6'; ctx.lineWidth = 1; ctx.stroke();
-  legendTypes.forEach((type, j) => {
-    const cy = legY + 14 + j*20;
-    ctx.beginPath(); ctx.arc(legX+13, cy, 5.5, 0, Math.PI*2); ctx.fillStyle = type.color; ctx.fill();
-    ctx.fillStyle='#6d6d65'; ctx.font='500 11px -apple-system, system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(type.label, legX+26, cy);
+  // Legend — a horizontal bar in the reserved bottom strip (no overlap with nodes),
+  // wrapping onto a second row if needed. Mirrors the on-screen legend below the map.
+  const legItems = getLegendTypes().map(t => ({ type: t, label: t.label }))
+    .concat([{ arrow: true, label: T('legend_power') }]);
+  ctx.font = '500 11px -apple-system, system-ui, sans-serif';
+  const L_GAP = 14, L_DOTGAP = 6, L_ROWH = 20, L_LINEW = 22, L_MAXW = W - 24;
+  const itemW = it => (it.arrow ? 18 : L_LINEW) + L_DOTGAP + ctx.measureText(it.label).width;
+  // Greedy-wrap items into rows that each fit within L_MAXW
+  const legRows = [[]];
+  let rowW = 0;
+  legItems.forEach(it => {
+    const w = itemW(it);
+    if (rowW + w > L_MAXW && legRows[legRows.length - 1].length) { legRows.push([]); rowW = 0; }
+    legRows[legRows.length - 1].push(it); rowW += w + L_GAP;
   });
-  // Power direction arrow
-  const pcy = legY + 14 + legendTypes.length * 20;
-  ctx.beginPath(); ctx.moveTo(legX+6,pcy); ctx.lineTo(legX+20,pcy);
-  ctx.strokeStyle='#6d6d65'; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(legX+20,pcy);
-  ctx.lineTo(legX+16,pcy-3.5); ctx.lineTo(legX+16,pcy+3.5);
-  ctx.closePath(); ctx.fillStyle='#6d6d65'; ctx.fill();
-  ctx.fillStyle='#6d6d65'; ctx.font='500 11px -apple-system, system-ui, sans-serif';
-  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(T('legend_power'), legX+26, pcy);
+  const legTop = mapH - _legBandH + (_legBandH - legRows.length * L_ROWH) / 2;
+  legRows.forEach((row, ri) => {
+    const totalW = row.reduce((a, it) => a + itemW(it), 0) + L_GAP * (row.length - 1);
+    let x = Math.max(12, (W - totalW) / 2);
+    const y = legTop + ri * L_ROWH + L_ROWH / 2;
+    row.forEach(it => {
+      if (it.arrow) {
+        ctx.strokeStyle = '#6d6d65'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 15, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + 15, y); ctx.lineTo(x + 11, y - 3.5); ctx.lineTo(x + 11, y + 3.5);
+        ctx.closePath(); ctx.fillStyle = '#6d6d65'; ctx.fill();
+        ctx.fillStyle = '#6d6d65'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.label, x + 18 + L_DOTGAP, y);
+      } else {
+        canvasLegendLine(ctx, it.type, x, y, L_LINEW);  // actual styled line, matches the map
+        ctx.fillStyle = '#6d6d65'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.label, x + L_LINEW + L_DOTGAP, y);
+      }
+      x += itemW(it) + L_GAP;
+    });
+  });
 
   // ── PERSPECTIVES SECTION ──
   ctx.fillStyle = '#eaf2e9';
@@ -4087,6 +4365,33 @@ function canvasRoundRect(ctx, x, y, w, h, r) {
   ctx.lineTo(x + r, y + h);   ctx.quadraticCurveTo(x, y + h, x, y + h - r);
   ctx.lineTo(x, y + r);       ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
+}
+
+// Draw a legend entry's line in its exact style on the export canvas (mirrors
+// legendLineSVGMarkup so the saved image's key matches the on-screen one).
+function canvasLegendLine(ctx, type, x, y, w) {
+  const color = type.color || '#888';
+  const shape = type.lineShape   || 'straight';
+  const pat   = type.linePattern || 'solid';
+  const tw    = ({1:1.2, 2:2, 3:2.8, 4:3.8})[type.lineThickness] || 2;
+  const dash  = pat === 'dotted' ? [tw, tw*2] : pat === 'dashed' ? [tw*3, tw*2] : [];
+  const x1 = x, x2 = x + w, amp = 3.6;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = tw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+  if (shape === 'wavy') {
+    const m = (x1 + x2) / 2;
+    ctx.moveTo(x1, y); ctx.quadraticCurveTo((x1+m)/2, y-amp, m, y); ctx.quadraticCurveTo((m+x2)/2, y+amp, x2, y);
+  } else if (shape === 'zigzag') {
+    const s = (x2 - x1) / 4;
+    ctx.moveTo(x1, y); ctx.lineTo(x1+s, y-amp); ctx.lineTo(x1+2*s, y+amp); ctx.lineTo(x1+3*s, y-amp); ctx.lineTo(x2, y);
+  } else {
+    ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
 }
 
 // ==================== SAVED PROJECTS ====================
