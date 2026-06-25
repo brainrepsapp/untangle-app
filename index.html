@@ -270,6 +270,9 @@
     .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
     .legend-arrow { width: 18px; height: 11px; flex-shrink: 0; display: flex; align-items: center; }
     .legend-line { width: 28px; height: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .legend-node { width: 28px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .legend-divider { height: 1px; background: var(--border); margin: 5px 0; opacity: 0.8; }
+    .final-legend .legend-divider { width: 100%; flex-basis: 100%; }
 
     /* ============================================================
        PRO MODE — PAN/ZOOM, DRAG, PALETTES, LEGEND EDITOR
@@ -312,6 +315,14 @@
     .lec-color { width:22px; height:22px; border-radius:50%; border:2.5px solid transparent; cursor:pointer; padding:0; flex-shrink:0; transition:transform 0.12s; }
     .lec-color:active { transform:scale(0.88); }
     .lec-color.active { border-color:#2e2e2a; }
+    /* Border swatches: white fill + coloured ring so the border colour is what's shown */
+    .lec-border-sw { background:#fff; border-width:3px; }
+    .lec-border-sw.active { box-shadow:0 0 0 2px #2e2e2a; }
+    /* "Auto" border = dashed sage ring (follows fill / default, like the map) */
+    .lec-auto { background:#fff; border-style:dashed; border-color:#8fae8b; }
+    .lec-auto.active { border-color:#2e2e2a; }
+    .lec-section-head { font-size:12px; font-weight:800; color:var(--text); margin:0 0 4px; }
+    .lec-section-sub { font-size:11px; color:var(--text-soft); margin-bottom:9px; line-height:1.4; }
     .lec-btn { display:flex; align-items:center; justify-content:center; min-width:36px; height:26px; padding:0 5px; border:1.5px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; transition:all 0.12s; }
     .lec-btn:active { transform:scale(0.93); }
     .lec-btn.active { border-color:var(--teal); background:var(--teal-light); }
@@ -1115,8 +1126,19 @@
     <div class="sheet-handle"></div>
     <div class="sheet-title" data-i18n="legend_editor_title">Edit Legend</div>
     <div class="sp-8"></div>
+    <div class="lec-section-head">Line styles</div>
     <div id="legend-types-list"></div>
     <button class="legend-add-btn" onclick="addCustomLegendType()" data-i18n="legend_add_custom">＋ Add Custom Type</button>
+    <div class="sp-20"></div>
+    <div class="lec-section-head">Arrow styles</div>
+    <div class="lec-section-sub">Rename what direction means, or add coloured arrow types.</div>
+    <div id="legend-arrows-list"></div>
+    <button class="legend-add-btn" onclick="addArrowLegendType()">＋ Add Arrow Style</button>
+    <div class="sp-20"></div>
+    <div class="lec-section-head">Node styles</div>
+    <div class="lec-section-sub">Document what a fill colour, border, or shape means.</div>
+    <div id="legend-nodes-list"></div>
+    <button class="legend-add-btn" onclick="addNodeLegendType()">＋ Add Node Style</button>
     <div class="sp-16"></div>
     <button class="btn btn-primary btn-full" onclick="closeLegendEditor()" data-i18n="done">Done</button>
   </div>
@@ -2277,7 +2299,9 @@ const S = {
   bubbleColors:       {},  // name → hex fill color
   bubbleBorderColors: {},  // name → hex border color (null = auto: match fill or default)
   nodeShapes:    {},  // name → 'circle'|'square'|'triangle'
-  legendTypes:   null, // null = use defaults; [{key,label,color}] when customised
+  legendTypes:   null, // null = use defaults; [{key,label,color,lineShape,linePattern,lineThickness}] when customised
+  nodeLegend:    null, // null/[] = none; [{key,label,fill,border,shape}] documents node appearance
+  arrowLegend:   null, // null = default Power direction; [{key,label,color}] documents arrow meanings
   mapPan:  {x:0, y:0},
   mapZoom: 1.0,
 };
@@ -2717,7 +2741,7 @@ function backFinal() {
 // ==================== PRO: PALETTE & LEGEND TYPES ====================
 
 const BUBBLE_PALETTE = ['#ffffff','#8fae8b','#4e9aa4','#7fb3d3','#b39ddb','#ffb74d','#ef9a9a','#78909c'];
-const REL_PALETTE    = ['#5dab6e','#e8b800','#c95542','#4e9aa4','#b39ddb','#ffb74d','#78909c','#2e2e2a'];
+const REL_PALETTE    = ['#5dab6e','#e8b800','#c95542','#4e9aa4','#b39ddb','#ffb74d','#78909c','#2e2e2a','#d6409f'];
 
 function isDarkColor(hex) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
@@ -2759,6 +2783,54 @@ function legendLineSVGMarkup(type, w, h) {
   }
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;flex-shrink:0">`
     + `<path d="${d}" stroke="${color}" stroke-width="${tw}" fill="none" stroke-linecap="round" stroke-linejoin="round"${dash?` stroke-dasharray="${dash}"`:''}/></svg>`;
+}
+
+// Node legend entries (documenting fill/border/shape meanings). Starts empty.
+function getNodeLegend() {
+  return S.nodeLegend || [];
+}
+// Resolve a node entry's border the same way the map does (applyBubbleStyle):
+// explicit border, else the fill colour if non-white, else the default sage ring.
+function nodeBorderColor(entry) {
+  const fill = entry.fill || '#ffffff';
+  if (entry.border) return entry.border;
+  return (fill && fill.toLowerCase() !== '#ffffff') ? fill : '#8fae8b';
+}
+// Inline SVG of a node in an entry's exact appearance (fill + border + shape) —
+// matches how bubbles are drawn on the map, for the legend and editor previews.
+function nodeStyleSVGMarkup(entry, sz) {
+  sz = sz || 22;
+  const fill   = entry.fill || '#ffffff';
+  const border = nodeBorderColor(entry);
+  const shape  = entry.shape || 'circle';
+  const sw = 2, pad = sw/2 + 0.5, c = sz/2;
+  let el;
+  if (shape === 'square') {
+    const x = pad, w = sz - pad*2;
+    el = `<rect x="${x}" y="${x}" width="${w}" height="${w}" rx="${w*0.18}" fill="${fill}" stroke="${border}" stroke-width="${sw}"/>`;
+  } else if (shape === 'triangle') {
+    el = `<polygon points="${c},${pad} ${sz-pad},${sz-pad} ${pad},${sz-pad}" fill="${fill}" stroke="${border}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+  } else {
+    el = `<circle cx="${c}" cy="${c}" r="${c-pad}" fill="${fill}" stroke="${border}" stroke-width="${sw}"/>`;
+  }
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="flex-shrink:0">${el}</svg>`;
+}
+
+// Arrow legend entries (direction meanings). Defaults to a single editable
+// "Power direction" entry; users can rename/recolor it and add more.
+function getArrowLegend() {
+  return S.arrowLegend || [{key:'power', label:T('legend_power'), color:'#6d6d65'}];
+}
+function ensureArrowLegend() {
+  if (!S.arrowLegend) S.arrowLegend = getArrowLegend().map(a => ({...a}));
+  return S.arrowLegend;
+}
+// Inline SVG of a directional arrow in a given colour — matches the map's arrowheads.
+function arrowSVGMarkup(color, w, h) {
+  w = w || 18; h = h || 11; color = color || '#6d6d65';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 18 11" style="flex-shrink:0">`
+    + `<line x1="1" y1="5.5" x2="11" y2="5.5" stroke="${color}" stroke-width="1.5"/>`
+    + `<polygon points="10,2.5 17,5.5 10,8.5" fill="${color}"/></svg>`;
 }
 
 function applyMapTransform() {
@@ -3542,15 +3614,23 @@ function renderMapLegend() {
       <span>${esc(t.label)}</span>
     </div>`
   ).join('');
-  html += `<div class="legend-row">
-    <div class="legend-arrow">
-      <svg width="18" height="11" viewBox="0 0 18 11">
-        <line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/>
-        <polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/>
-      </svg>
-    </div>
-    <span data-i18n="legend_power">${T('legend_power')}</span>
-  </div>`;
+  html += getArrowLegend().map(a =>
+    `<div class="legend-row">
+      <div class="legend-arrow">${arrowSVGMarkup(a.color, 18, 11)}</div>
+      <span>${esc(a.label)}</span>
+    </div>`
+  ).join('');
+  // Node-appearance entries (fill/border/shape meanings), grouped after the lines.
+  const nodes = getNodeLegend();
+  if (nodes.length) {
+    html += `<div class="legend-divider"></div>`;
+    html += nodes.map(nd =>
+      `<div class="legend-row">
+        <div class="legend-node">${nodeStyleSVGMarkup(nd, 16)}</div>
+        <span>${esc(nd.label)}</span>
+      </div>`
+    ).join('');
+  }
   if (S.mode === 'professional') {
     html += `<div class="legend-edit-row">
       <button class="legend-edit-btn" onclick="openLegendEditor()">${T('legend_edit')}</button>
@@ -3565,6 +3645,8 @@ function openLegendEditor() {
   // Initialise S.legendTypes from defaults if not yet customised
   if (!S.legendTypes) S.legendTypes = getLegendTypes().map(t => ({...t}));
   renderLegendEditor();
+  renderArrowLegendEditor();
+  renderNodeLegendEditor();
   document.getElementById('legend-overlay').classList.add('open');
 }
 
@@ -3700,6 +3782,178 @@ function addCustomLegendType() {
   if (inputs.length) inputs[inputs.length-1].focus();
 }
 
+// ── Arrow-direction legend (editable label + colour; default "Power direction") ──
+const ARROW_PALETTE = ['#6d6d65', '#5dab6e', '#e8b800', '#c95542', '#4e9aa4', '#7fb3d3', '#b39ddb', '#ef9a9a'];
+
+function renderArrowLegendEditor() {
+  const list = document.getElementById('legend-arrows-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const entries = getArrowLegend();
+
+  entries.forEach((entry, ai) => {
+    const card = document.createElement('div');
+    card.className = 'legend-edit-card';
+
+    const top = document.createElement('div');
+    top.className = 'lec-top';
+    const preview = document.createElement('div');
+    preview.className = 'lec-preview';
+    preview.innerHTML = arrowSVGMarkup(entry.color, 30, 13);
+    const refresh = () => { preview.innerHTML = arrowSVGMarkup(getArrowLegend()[ai].color, 30, 13); };
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'legend-type-input';
+    input.value = entry.label;
+    input.placeholder = 'Label (e.g. Influence)';
+    input.oninput = () => { ensureArrowLegend()[ai].label = input.value; };
+
+    const del = document.createElement('button');
+    del.className = 'legend-del-btn';
+    del.textContent = '×';
+    // The default "Power direction" entry must stay — editable, not removable.
+    del.style.visibility = entry.key === 'power' ? 'hidden' : 'visible';
+    del.onclick = () => { ensureArrowLegend().splice(ai, 1); renderArrowLegendEditor(); };
+    top.append(preview, input, del);
+    card.appendChild(top);
+
+    const controls = document.createElement('div');
+    controls.className = 'lec-controls';
+    const g = document.createElement('div'); g.className = 'lec-group';
+    g.innerHTML = `<span class="lec-grp-label">Color</span>`;
+    const items = document.createElement('div'); items.className = 'lec-grp-items';
+    g.appendChild(items); controls.appendChild(g);
+    ARROW_PALETTE.forEach(hex => {
+      const sw = document.createElement('button');
+      sw.className = 'lec-color' + (hex === entry.color ? ' active' : '');
+      sw.style.background = hex;
+      sw.onclick = () => {
+        ensureArrowLegend()[ai].color = hex;
+        items.querySelectorAll('.lec-color').forEach(b => b.classList.toggle('active', b === sw));
+        refresh();
+      };
+      items.appendChild(sw);
+    });
+    card.appendChild(controls);
+    list.appendChild(card);
+  });
+}
+
+function addArrowLegendType() {
+  const arr = ensureArrowLegend();
+  const maxN = arr.reduce((m, t) => {
+    const k = /^a(\d+)$/.exec(t.key); return k ? Math.max(m, +k[1]) : m;
+  }, 0);
+  arr.push({ key: `a${maxN + 1}`, label: 'Arrow Type', color: ARROW_PALETTE[arr.length % ARROW_PALETTE.length] });
+  renderArrowLegendEditor();
+  const inputs = document.querySelectorAll('#legend-arrows-list .legend-type-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+// ── Node-appearance legend (fill / border / shape meanings) ──
+const NODE_LEGEND_SHAPES = [['circle','Circle'], ['square','Square'], ['triangle','Triangle']];
+
+function renderNodeLegendEditor() {
+  const list = document.getElementById('legend-nodes-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const entries = S.nodeLegend || [];
+
+  entries.forEach((entry, ni) => {
+    entry.fill  = entry.fill  || '#ffffff';
+    entry.shape = entry.shape || 'circle';
+    // entry.border may be null/undefined = "auto"
+
+    const card = document.createElement('div');
+    card.className = 'legend-edit-card';
+
+    // Top: preview + label + delete
+    const top = document.createElement('div');
+    top.className = 'lec-top';
+    const preview = document.createElement('div');
+    preview.className = 'lec-preview';
+    preview.innerHTML = nodeStyleSVGMarkup(entry, 22);
+    const refresh = () => { preview.innerHTML = nodeStyleSVGMarkup(entry, 22); };
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'legend-type-input';
+    input.value = entry.label;
+    input.placeholder = 'Label (e.g. Institution)';
+    input.oninput = () => { entry.label = input.value; };
+
+    const del = document.createElement('button');
+    del.className = 'legend-del-btn';
+    del.textContent = '×';
+    del.onclick = () => { S.nodeLegend.splice(ni, 1); renderNodeLegendEditor(); };
+    top.append(preview, input, del);
+    card.appendChild(top);
+
+    // Controls
+    const controls = document.createElement('div');
+    controls.className = 'lec-controls';
+    const makeGroup = (label) => {
+      const g = document.createElement('div'); g.className = 'lec-group';
+      g.innerHTML = `<span class="lec-grp-label">${label}</span>`;
+      const items = document.createElement('div'); items.className = 'lec-grp-items';
+      g.appendChild(items); controls.appendChild(g);
+      return items;
+    };
+    const setActive = (container, btn, cls) =>
+      container.querySelectorAll('.' + cls).forEach(b => b.classList.toggle('active', b === btn));
+
+    // Fill colour (BUBBLE_PALETTE includes white)
+    const fillItems = makeGroup('Fill');
+    BUBBLE_PALETTE.forEach(hex => {
+      const sw = document.createElement('button');
+      sw.className = 'lec-color' + (hex === entry.fill ? ' active' : '');
+      sw.style.background = hex;
+      if (hex === '#ffffff') sw.style.borderColor = 'var(--border)';
+      sw.onclick = () => { entry.fill = hex; setActive(fillItems, sw, 'lec-color'); refresh(); };
+      fillItems.appendChild(sw);
+    });
+    // Border colour (Auto = follow fill/default, like the map)
+    const borderItems = makeGroup('Border');
+    const auto = document.createElement('button');
+    auto.className = 'lec-color lec-auto' + (!entry.border ? ' active' : '');
+    auto.title = 'Auto';
+    auto.onclick = () => { entry.border = null; setActive(borderItems, auto, 'lec-color'); refresh(); };
+    borderItems.appendChild(auto);
+    BUBBLE_PALETTE.forEach(hex => {
+      const sw = document.createElement('button');
+      sw.className = 'lec-color lec-border-sw' + (hex === entry.border ? ' active' : '');
+      sw.style.borderColor = hex;
+      sw.onclick = () => { entry.border = hex; setActive(borderItems, sw, 'lec-color'); refresh(); };
+      borderItems.appendChild(sw);
+    });
+    // Shape
+    const shapeItems = makeGroup('Shape');
+    NODE_LEGEND_SHAPES.forEach(([key, name]) => {
+      const b = document.createElement('button');
+      b.className = 'lec-btn' + (entry.shape === key ? ' active' : '');
+      b.title = name;
+      b.innerHTML = nodeStyleSVGMarkup({fill:'#ffffff', border:'#6d6d65', shape:key}, 16);
+      b.onclick = () => { entry.shape = key; setActive(shapeItems, b, 'lec-btn'); refresh(); };
+      shapeItems.appendChild(b);
+    });
+
+    card.appendChild(controls);
+    list.appendChild(card);
+  });
+}
+
+function addNodeLegendType() {
+  if (!S.nodeLegend) S.nodeLegend = [];
+  const maxN = S.nodeLegend.reduce((m, t) => {
+    const k = /^n(\d+)$/.exec(t.key); return k ? Math.max(m, +k[1]) : m;
+  }, 0);
+  S.nodeLegend.push({ key: `n${maxN + 1}`, label: 'Node Type', fill: '#ffffff', border: null, shape: 'circle' });
+  renderNodeLegendEditor();
+  const inputs = document.querySelectorAll('#legend-nodes-list .legend-type-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
 // ==================== TOUCH: MAP PAN & NODE DRAG ====================
 
 // Map touchmove — handles scroll prevention + Pro drag + Pro pan/pinch
@@ -3803,12 +4057,17 @@ function renderFinalMap() {
   // Rebuild final legend dynamically from current legend types
   const finalLegEl = document.getElementById('final-legend');
   if (finalLegEl) {
-    const powerArrowSVG = `<div class="legend-arrow"><svg width="18" height="11" viewBox="0 0 18 11"><line x1="1" y1="5.5" x2="11" y2="5.5" stroke="#6d6d65" stroke-width="1.5"/><polygon points="10,2.5 17,5.5 10,8.5" fill="#6d6d65"/></svg></div>`;
+    const nodeRows = getNodeLegend();
     finalLegEl.innerHTML =
       getLegendTypes().map(t =>
         `<div class="legend-row"><div class="legend-line">${legendLineSVGMarkup(t, 28, 13)}</div><span>${esc(t.label)}</span></div>`
       ).join('') +
-      `<div class="legend-row">${powerArrowSVG}<span data-i18n="legend_power">${T('legend_power')}</span></div>`;
+      getArrowLegend().map(a =>
+        `<div class="legend-row"><div class="legend-arrow">${arrowSVGMarkup(a.color, 18, 11)}</div><span>${esc(a.label)}</span></div>`
+      ).join('') +
+      (nodeRows.length ? `<div class="legend-divider"></div>` + nodeRows.map(nd =>
+        `<div class="legend-row"><div class="legend-node">${nodeStyleSVGMarkup(nd, 16)}</div><span>${esc(nd.label)}</span></div>`
+      ).join('') : '');
   }
 
   // Populate perspectives cards
@@ -3874,9 +4133,24 @@ function downloadMap() {
   // the on-screen final map uses, so the exported image matches it exactly.
   const mapH   = Math.round(W * 0.9);
   const topOff = 52;
-  // Reserve a short bottom strip for a horizontal legend bar so no node is ever
-  // drawn under it (kept compact so the map stays large/readable).
-  const _legBandH = 50;
+  // Build the legend layout up front (lines + power + node styles) so the reserved
+  // bottom band can fit however many rows it wraps into, without overlapping nodes.
+  const _measure = document.createElement('canvas').getContext('2d');
+  _measure.font = '500 11px -apple-system, system-ui, sans-serif';
+  const L_GAP = 14, L_DOTGAP = 6, L_ROWH = 20, L_LINEW = 22, L_NODEW = 18, L_MAXW = W - 24;
+  const legItems = getLegendTypes().map(t => ({ type: t, label: t.label }))
+    .concat(getArrowLegend().map(a => ({ arrow: true, color: a.color, label: a.label })))
+    .concat(getNodeLegend().map(nd => ({ node: nd, label: nd.label })));
+  const legItemW = it => (it.arrow ? 18 : it.node ? L_NODEW : L_LINEW) + L_DOTGAP + _measure.measureText(it.label).width;
+  const legRows = [[]];
+  { let rowW = 0;
+    legItems.forEach(it => {
+      const w = legItemW(it);
+      if (rowW + w > L_MAXW && legRows[legRows.length - 1].length) { legRows.push([]); rowW = 0; }
+      legRows[legRows.length - 1].push(it); rowW += w + L_GAP;
+    });
+  }
+  const _legBandH = Math.max(50, legRows.length * L_ROWH + 14);
   const areaH  = mapH - 56 - _legBandH;
   const _src   = phase3Layout();
   const _fit   = n > 0
@@ -4123,40 +4397,33 @@ function downloadMap() {
     canvasWrapText(ctx, p.name, pos.x, pos.y + textOffY, bRad*1.45, bubbleFontSize(p.name, bSz), 14);
   });
 
-  // Legend — a horizontal bar in the reserved bottom strip (no overlap with nodes),
-  // wrapping onto a second row if needed. Mirrors the on-screen legend below the map.
-  const legItems = getLegendTypes().map(t => ({ type: t, label: t.label }))
-    .concat([{ arrow: true, label: T('legend_power') }]);
+  // Legend — horizontal bar in the reserved bottom strip (computed up front as
+  // legRows). Lines + power-direction + node styles; mirrors the on-screen legend.
   ctx.font = '500 11px -apple-system, system-ui, sans-serif';
-  const L_GAP = 14, L_DOTGAP = 6, L_ROWH = 20, L_LINEW = 22, L_MAXW = W - 24;
-  const itemW = it => (it.arrow ? 18 : L_LINEW) + L_DOTGAP + ctx.measureText(it.label).width;
-  // Greedy-wrap items into rows that each fit within L_MAXW
-  const legRows = [[]];
-  let rowW = 0;
-  legItems.forEach(it => {
-    const w = itemW(it);
-    if (rowW + w > L_MAXW && legRows[legRows.length - 1].length) { legRows.push([]); rowW = 0; }
-    legRows[legRows.length - 1].push(it); rowW += w + L_GAP;
-  });
   const legTop = mapH - _legBandH + (_legBandH - legRows.length * L_ROWH) / 2;
   legRows.forEach((row, ri) => {
-    const totalW = row.reduce((a, it) => a + itemW(it), 0) + L_GAP * (row.length - 1);
+    const totalW = row.reduce((a, it) => a + legItemW(it), 0) + L_GAP * (row.length - 1);
     let x = Math.max(12, (W - totalW) / 2);
     const y = legTop + ri * L_ROWH + L_ROWH / 2;
     row.forEach(it => {
       if (it.arrow) {
-        ctx.strokeStyle = '#6d6d65'; ctx.lineWidth = 1.5;
+        const ac = it.color || '#6d6d65';
+        ctx.strokeStyle = ac; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 15, y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x + 15, y); ctx.lineTo(x + 11, y - 3.5); ctx.lineTo(x + 11, y + 3.5);
-        ctx.closePath(); ctx.fillStyle = '#6d6d65'; ctx.fill();
+        ctx.closePath(); ctx.fillStyle = ac; ctx.fill();
         ctx.fillStyle = '#6d6d65'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
         ctx.fillText(it.label, x + 18 + L_DOTGAP, y);
+      } else if (it.node) {
+        canvasNodeStyle(ctx, it.node, x, y, 13);   // actual node shape, matches the map
+        ctx.fillStyle = '#6d6d65'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.label, x + L_NODEW + L_DOTGAP, y);
       } else {
         canvasLegendLine(ctx, it.type, x, y, L_LINEW);  // actual styled line, matches the map
         ctx.fillStyle = '#6d6d65'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
         ctx.fillText(it.label, x + L_LINEW + L_DOTGAP, y);
       }
-      x += itemW(it) + L_GAP;
+      x += legItemW(it) + L_GAP;
     });
   });
 
@@ -4394,6 +4661,27 @@ function canvasLegendLine(ctx, type, x, y, w) {
   ctx.restore();
 }
 
+// Draw a node-legend entry's shape (fill + border + circle/square/triangle) on the
+// export canvas, centered vertically at y, mirroring nodeStyleSVGMarkup.
+function canvasNodeStyle(ctx, entry, x, y, r) {
+  const fill   = entry.fill || '#ffffff';
+  const border = nodeBorderColor(entry);
+  const shape  = entry.shape || 'circle';
+  const cx = x + r, cy = y;
+  ctx.save();
+  ctx.fillStyle = fill; ctx.strokeStyle = border; ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+  if (shape === 'square') {
+    canvasRoundRect(ctx, cx - r, cy - r, r*2, r*2, r*0.34); ctx.fill(); ctx.stroke();
+  } else if (shape === 'triangle') {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r*1.05, cy + r*0.85); ctx.lineTo(cx - r*1.05, cy + r*0.85);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // ==================== SAVED PROJECTS ====================
 
 const STORAGE_KEY  = 'untangle_v1';
@@ -4447,6 +4735,8 @@ function saveProject() {
     bubbleBorderColors: Object.assign({}, S.bubbleBorderColors || {}),
     nodeShapes:     Object.assign({}, S.nodeShapes),
     legendTypes:    S.legendTypes ? S.legendTypes.map(t=>({...t})) : null,
+    nodeLegend:     S.nodeLegend ? S.nodeLegend.map(t=>({...t})) : null,
+    arrowLegend:    S.arrowLegend ? S.arrowLegend.map(t=>({...t})) : null,
   };
   if (idx >= 0) projects[idx] = entry;
   else projects.unshift(entry);
@@ -4499,6 +4789,8 @@ function openProject(id) {
   S.bubbleBorderColors = Object.assign({}, proj.bubbleBorderColors || {});
   S.nodeShapes         = Object.assign({}, proj.nodeShapes         || {});
   S.legendTypes     = proj.legendTypes ? proj.legendTypes.map(t=>({...t})) : null;
+  S.nodeLegend      = proj.nodeLegend ? proj.nodeLegend.map(t=>({...t})) : null;
+  S.arrowLegend     = proj.arrowLegend ? proj.arrowLegend.map(t=>({...t})) : null;
   S.mapPan          = {x:0, y:0};
   S.mapZoom         = 1.0;
   S.selectedNode = null;
@@ -4527,7 +4819,7 @@ function newMap() {
     situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
     projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
-    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
+    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, nodeLegend: null, arrowLegend: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
@@ -4626,7 +4918,7 @@ function startOver() {
     situation: '', people: [], wants: {}, misunderstood: {}, evidence: {}, debrief: {}, rels: [],
     phase2idx: 0, selectedNode: null, pendingNode: null,
     projectId: null, createdAt: null, phase: 'start', mapScale: 1.0, bubbleSizes: {},
-    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
+    nodePositions: {}, bubbleColors: {}, bubbleBorderColors: {}, nodeShapes: {}, legendTypes: null, nodeLegend: null, arrowLegend: null, mapPan: {x:0,y:0}, mapZoom: 1.0,
   });
   document.getElementById('situation-input').value   = '';
   document.getElementById('stakeholder-input').value = '';
